@@ -1295,20 +1295,66 @@ function applyPromo(){
 
 async function placeOrder(){
   if(DATA.cart.length===0){showNotif('Cart is empty!');return;}
-  const paymentMethod=document.querySelector('input[name="payment"]:checked')?.value||'cod';
-  const subtotal=DATA.cart.reduce((s,c)=>s+c.price*c.qty,0);
-  showNotif('Placing order...');
-  const data=await apiCall('/orders','POST',{
-    restaurantId:DATA.cart[0]?.restId||'mock',
-    items:DATA.cart.map(c=>({food:c.id,name:c.name,price:c.price,quantity:c.qty})),
-    address:{street:'Delhi',city:'Delhi',pincode:'110001'},
+  if(!DATA.currentUser){navigate('login');return;}
+
+  const paymentMethod = document.querySelector('input[name="payment"]:checked')?.value||'cod';
+  const subtotal = DATA.cart.reduce((s,c)=>s+c.price*c.qty,0);
+
+  // Get restaurant ID from cart
+  const restId = DATA.cart[0]?.restId;
+  if(!restId){showNotif('❌ Restaurant not found');return;}
+
+  showNotif('⏳ Placing order...');
+
+  const orderPayload = {
+    restaurantId: restId,
+    items: DATA.cart.map(c=>({
+      food: c.id,
+      name: c.name,
+      price: c.price,
+      quantity: c.qty,
+      image: c.image||'',
+    })),
+    address:{
+      street: document.getElementById('address-select')?.value||'Home',
+      city: 'India',
+      pincode: '110001'
+    },
     paymentMethod,
-    couponCode:document.getElementById('promo-input')?.value?.toUpperCase()||'',
-  });
-  const oid=data?._id?'FI'+data._id.slice(-6).toUpperCase():'FI'+Math.floor(100000+Math.random()*900000);
-  DATA.orders.unshift({id:oid,items:DATA.cart.map(c=>c.name+' x'+c.qty),total:subtotal+45,status:'Pending',time:new Date().toLocaleTimeString(),rest:DATA.restaurants.find(r=>(r.id||r._id)===DATA.cart[0]?.restId)?.name||'Restaurant',date:'Today'});
-  DATA.cart=[];promoApplied=false;updateCartCount();
-  showNotif('Order placed! 🎉');navigate('orders');
+    couponCode: document.getElementById('promo-input')?.value?.toUpperCase()||'',
+    subtotal,
+    deliveryFee: 40,
+    total: subtotal + 45,
+  };
+
+  console.log('Placing order:', orderPayload);
+
+  const data = await apiCall('/orders','POST', orderPayload);
+
+  if(data && data._id){
+    // Order saved to backend successfully
+    const oid = 'FI' + data._id.slice(-6).toUpperCase();
+    const restName = DATA.restaurants.find(r=>(r.id||r._id)===restId)?.name||'Restaurant';
+
+    DATA.orders.unshift({
+      id: oid,
+      _id: data._id,
+      items: DATA.cart.map(c=>c.name+' x'+c.qty),
+      total: subtotal+45,
+      status: data.status||'Pending',
+      time: new Date().toLocaleTimeString(),
+      rest: restName,
+      date: 'Today'
+    });
+
+    DATA.cart=[];
+    promoApplied=false;
+    updateCartCount();
+    showNotif('Order placed successfully! 🎉');
+    navigate('orders');
+  } else {
+    showNotif('❌ Order failed. Please try again.');
+  }
 }
 
 // ══ ORDERS ══
@@ -1434,23 +1480,15 @@ function renderRestPanel(section){
       </table>
     </div>`;
   } else if(section==='rp-orders'){
-    el.innerHTML=`<div class="panel-header"><div class="panel-title">Order Management</div></div>
-    <div style="background:#fff;border-radius:12px;border:1px solid var(--border);overflow:hidden">
-      <table class="data-table" style="width:100%">
-        <thead><tr><th>Order ID</th><th>Customer</th><th>Items</th><th>Amount</th><th>Time</th><th>Status</th><th>Actions</th></tr></thead>
-        <tbody>${DATA.panelOrders.map(o=>`<tr>
-          <td style="font-weight:600">#${o.id}</td><td>${o.cust}</td>
-          <td style="font-size:12px;max-width:150px">${o.items}</td>
-          <td style="font-weight:700">₹${o.amount}</td>
-          <td style="color:var(--text2);font-size:12px">${o.time}</td>
-          <td><span class="badge ${o.status==='Delivered'?'badge-green':o.status==='Pending'?'badge-orange':'badge-gray'}">${o.status}</span></td>
-          <td class="flex gap-8">
-            <button class="action-btn action-approve" onclick="showNotif('Order accepted!')">Accept</button>
-            <button class="action-btn action-block" onclick="showNotif('Order rejected')">Reject</button>
-          </td>
-        </tr>`).join('')}</tbody>
-      </table>
-    </div>`;
+  el.innerHTML=`<div class="panel-header">
+    <div class="panel-title">Order Management</div>
+    <div class="panel-sub">Manage incoming orders</div>
+  </div>
+  <div id="rest-orders-list">
+    <div style="text-align:center;padding:40px;color:var(--text2)">⏳ Loading orders...</div>
+  </div>`;
+  fetchRestaurantOrders();
+    
   } else if(section==='rp-menu'){
      el.innerHTML=`<div class="panel-header flex-between">
     <div><div class="panel-title">Menu Manager</div><div class="panel-sub">Add and manage your food items</div></div>
@@ -1603,76 +1641,78 @@ async function submitMenuItem(btn){
   }
 }
 // ══ RESTAURANT MENU FETCH ══
-async function fetchRestaurantMenu(){
-  // First get the restaurant owned by current user
-  const data = await apiCall('/restaurants');
-  let restId = null;
+async function fetchRestaurantOrders(){
+  const el = document.getElementById('rest-orders-list');
+  if(!el) return;
 
-  if(data && data.restaurants){
-    const myRest = data.restaurants.find(r => 
-      r.owner === DATA.currentUser?._id || 
-      r.owner?._id === DATA.currentUser?._id
-    );
-    if(myRest) restId = myRest._id;
-  }
+  const orders = await apiCall('/orders/restaurant');
 
-  const listEl = document.getElementById('menu-items-list');
-  if(!listEl) return;
-
-  if(!restId){
-    listEl.innerHTML = `<div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:40px;text-align:center;color:var(--text2)">
-      <div style="font-size:48px;margin-bottom:12px">🏪</div>
-      <div style="font-weight:600;margin-bottom:6px">Restaurant not found</div>
-      <div style="font-size:13px">Make sure your restaurant is approved by admin</div>
+  if(!orders || !orders.length){
+    el.innerHTML=`<div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:60px;text-align:center;color:var(--text2)">
+      <div style="font-size:48px;margin-bottom:12px">📦</div>
+      <div style="font-weight:600;margin-bottom:6px">No orders yet</div>
+      <div style="font-size:13px">Orders from customers will appear here</div>
     </div>`;
     return;
   }
 
-  const items = await apiCall('/menu/' + restId) || [];
+  el.innerHTML=`<div style="background:#fff;border-radius:12px;border:1px solid var(--border);overflow:hidden">
+    <table class="data-table" style="width:100%">
+      <thead>
+        <tr>
+          <th>Order ID</th>
+          <th>Customer</th>
+          <th>Items</th>
+          <th>Amount</th>
+          <th>Payment</th>
+          <th>Time</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${orders.map(o=>`<tr>
+          <td style="font-weight:600">#${o._id.slice(-6).toUpperCase()}</td>
+          <td>
+            <div style="font-weight:500">${o.user?.name||'Customer'}</div>
+            <div style="font-size:11px;color:var(--text2)">${o.user?.phone||''}</div>
+          </td>
+          <td style="font-size:12px;max-width:160px">
+            ${o.items.map(i=>i.name+' x'+i.quantity).join(', ')}
+          </td>
+          <td style="font-weight:700">₹${o.total}</td>
+          <td><span class="badge badge-gray">${o.paymentMethod?.toUpperCase()||'COD'}</span></td>
+          <td style="font-size:12px;color:var(--text2)">
+            ${new Date(o.createdAt).toLocaleTimeString('en-IN')}
+          </td>
+          <td>
+            <span class="badge ${
+              o.status==='delivered'?'badge-green':
+              o.status==='pending'?'badge-orange':
+              o.status==='cancelled'?'badge-red':'badge-gray'
+            }">${o.status}</span>
+          </td>
+          <td>
+            <select style="padding:5px 8px;font-size:12px;border-radius:6px;width:auto"
+              onchange="updateRestOrderStatus('${o._id}',this.value)">
+              <option value="pending" ${o.status==='pending'?'selected':''}>Pending</option>
+              <option value="accepted" ${o.status==='accepted'?'selected':''}>Accepted</option>
+              <option value="preparing" ${o.status==='preparing'?'selected':''}>Preparing</option>
+              <option value="out_for_delivery" ${o.status==='out_for_delivery'?'selected':''}>Out for Delivery</option>
+              <option value="delivered" ${o.status==='delivered'?'selected':''}>Delivered</option>
+              <option value="cancelled" ${o.status==='cancelled'?'selected':''}>Cancelled</option>
+            </select>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
 
-  if(!items.length){
-    listEl.innerHTML = `<div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:40px;text-align:center;color:var(--text2)">
-      <div style="font-size:48px;margin-bottom:12px">🍽️</div>
-      <div style="font-weight:600;margin-bottom:6px">No menu items yet</div>
-      <div style="font-size:13px;margin-bottom:16px">Start adding items to your menu</div>
-      <button class="btn btn-primary btn-sm" onclick="showAddItemModal()">+ Add First Item</button>
-    </div>`;
-    return;
-  }
-
-  // Group by category
-  const cats = [...new Set(items.map(i => i.category))];
-
-  listEl.innerHTML = cats.map(cat => `
-    <div style="background:#fff;border-radius:12px;border:1px solid var(--border);overflow:hidden;margin-bottom:16px">
-      <div style="padding:14px 20px;border-bottom:1px solid var(--border);font-weight:700;font-size:15px;background:var(--surface2)">${cat}</div>
-      ${items.filter(i => i.category === cat).map(item => `
-        <div style="display:flex;align-items:center;gap:16px;padding:16px 20px;border-bottom:1px solid var(--border)">
-          <div style="width:64px;height:64px;border-radius:10px;background:var(--surface2);flex:0 0 auto;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:28px">
-            ${item.image && item.image.startsWith('http') 
-              ? `<img src="${item.image}" style="width:100%;height:100%;object-fit:cover">` 
-              : '🍽️'}
-          </div>
-          <div style="flex:1">
-            <div style="font-weight:600;font-size:14px;margin-bottom:3px">${item.name}</div>
-            <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${item.description || ''}</div>
-            <div style="font-weight:700;font-size:15px;color:var(--text)">₹${item.price}</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:12px">
-            <div style="display:flex;align-items:center;gap:6px;font-size:13px">
-              <span style="color:${item.isVeg ? 'var(--green)' : 'var(--red)'}">
-                ${item.isVeg ? '🟢 Veg' : '🔴 Non-Veg'}
-              </span>
-            </div>
-            <div class="toggle ${item.isAvailable ? 'on' : ''}" 
-              onclick="toggleItemAvailability('${item._id}', this)"></div>
-            <button class="action-btn action-approve" 
-              onclick="editMenuItem('${item._id}')">Edit</button>
-            <button class="action-btn action-block" 
-              onclick="deleteMenuItem('${item._id}')">Delete</button>
-          </div>
-        </div>`).join('')}
-    </div>`).join('');
+async function updateRestOrderStatus(orderId, status){
+  const res = await apiCall('/orders/'+orderId+'/status','PATCH',{status});
+  if(res){ showNotif('Order updated to '+status+' ✅'); fetchRestaurantOrders(); }
+  else showNotif('❌ Update failed');
 }
 
 async function toggleItemAvailability(id, toggleEl){
@@ -1784,12 +1824,66 @@ async function renderAdminPanel(section){
     </table>
   </div>`;
   } else if(section==='ap-orders'){
-    el.innerHTML=`<div class="panel-header"><div class="panel-title">Order Management</div></div>
-    <div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:40px;text-align:center;color:var(--text2)">
+    el.innerHTML=`<div class="panel-header">
+    <div class="panel-title">All Orders</div>
+    <div class="panel-sub">Platform-wide order management</div>
+  </div>
+  <div id="admin-orders-list">
+    <div style="text-align:center;padding:40px;color:var(--text2)">⏳ Loading...</div>
+  </div>`;
+
+  const orders = await apiCall('/orders/all');
+
+  const listEl = document.getElementById('admin-orders-list');
+  if(!listEl) return;
+
+  if(!orders || !orders.length){
+    listEl.innerHTML=`<div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:60px;text-align:center;color:var(--text2)">
       <div style="font-size:48px;margin-bottom:12px">📦</div>
       <div style="font-weight:600">No orders placed yet</div>
-      <div style="font-size:13px;margin-top:6px">Orders will appear here once customers start ordering</div>
     </div>`;
+    return;
+  }
+
+  listEl.innerHTML=`<div style="background:#fff;border-radius:12px;border:1px solid var(--border);overflow:hidden">
+    <table class="data-table" style="width:100%">
+      <thead>
+        <tr>
+          <th>Order ID</th>
+          <th>Customer</th>
+          <th>Restaurant</th>
+          <th>Items</th>
+          <th>Total</th>
+          <th>Payment</th>
+          <th>Date</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${orders.map(o=>`<tr>
+          <td style="font-weight:600">#${o._id.slice(-6).toUpperCase()}</td>
+          <td>
+            <div style="font-weight:500">${o.user?.name||'—'}</div>
+            <div style="font-size:11px;color:var(--text2)">${o.user?.email||''}</div>
+          </td>
+          <td style="font-weight:500">${o.restaurant?.name||'—'}</td>
+          <td style="font-size:12px;max-width:150px;color:var(--text2)">
+            ${o.items.map(i=>i.name+' x'+i.quantity).join(', ')}
+          </td>
+          <td style="font-weight:700">₹${o.total}</td>
+          <td><span class="badge badge-gray">${o.paymentMethod?.toUpperCase()||'COD'}</span></td>
+          <td style="font-size:12px;color:var(--text2)">
+            ${new Date(o.createdAt).toLocaleDateString('en-IN')}
+          </td>
+          <td><span class="badge ${
+            o.status==='delivered'?'badge-green':
+            o.status==='pending'?'badge-orange':
+            o.status==='cancelled'?'badge-red':'badge-gray'
+          }">${o.status}</span></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
   } else if(section==='ap-categories'){
     el.innerHTML=`<div class="panel-header flex-between">
       <div><div class="panel-title">Categories</div></div>
