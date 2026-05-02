@@ -325,7 +325,7 @@ label{font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bot
           <button class="hamburger-btn" onclick="toggleDropdown()" id="hamburger-btn" title="More options">☰</button>
           <div class="dropdown-menu hidden" id="main-dropdown">
             <div class="dropdown-item" onclick="navigate('restaurant-login');toggleDropdown()">🍴 Restaurant Partner</div>
-            <div class="dropdown-item" onclick="navigate('admin');toggleDropdown()">🛡️ Admin Panel</div>
+            <div class="dropdown-item" onclick="navigate('admin-login');toggleDropdown()">🛡️ Admin Panel</div>
           </div>
         </div>
       </div>
@@ -660,6 +660,23 @@ label{font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bot
 </div>
 
 <!-- ══ ADMIN PANEL ══ -->
+<!-- ══ ADMIN LOGIN ══ -->
+<div id="page-admin-login" class="page">
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="logo" style="justify-content:center;font-size:20px">🛡️ Admin Panel</div>
+      </div>
+      <div class="auth-title">Admin Login</div>
+      <div class="auth-sub" style="margin-bottom:20px">Enter your admin credentials</div>
+      <div class="form-group"><label>Email</label><input type="email" id="admin-email" placeholder="admin@foodieindia.com"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="admin-pass" placeholder="••••••••"></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;border-radius:8px" onclick="loginAdmin()">Login to Admin →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADMIN PANEL ══ -->
 <div id="page-admin" class="page">
   <div class="panel-wrap">
     <aside class="panel-sidebar">
@@ -669,7 +686,7 @@ label{font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bot
       <div class="panel-nav-item" onclick="switchAdminPanel('ap-restaurants',this)">🍴 Restaurants</div>
       <div class="panel-nav-item" onclick="switchAdminPanel('ap-orders',this)">📦 Orders</div>
       <div class="panel-nav-item" onclick="switchAdminPanel('ap-categories',this)">🏷️ Categories</div>
-      <div class="panel-nav-item" onclick="logout()">🚪 Logout</div>
+      <div class="panel-nav-item" onclick="logoutAdmin()">🚪 Logout</div>
     </aside>
     <main class="panel-main" id="admin-panel-main"></main>
   </div>
@@ -728,11 +745,14 @@ let dropdownOpen = false;
 
 // ══ API ══
 async function apiCall(endpoint, method='GET', body=null){
-  const token = localStorage.getItem('fi_token');
+  const token = localStorage.getItem('admin_token') || localStorage.getItem('fi_token');
   try {
     const res = await fetch(API_BASE + endpoint, {
       method,
-      headers:{'Content-Type':'application/json',...(token&&{Authorization:'Bearer '+token})},
+      headers:{
+        'Content-Type':'application/json',
+        ...(token&&{Authorization:'Bearer '+token})
+      },
       ...(body&&{body:JSON.stringify(body)}),
     });
     const data = await res.json();
@@ -771,7 +791,12 @@ function navigate(page){
   else if(page==='orders') renderOrders();
   else if(page==='profile') renderProfile();
   else if(page==='restaurant-panel') renderRestPanel('rp-dashboard');
-  else if(page==='admin') renderAdminPanel('ap-dashboard');
+  else if(page==='admin'){
+  // Check if admin is logged in
+  const adminToken = localStorage.getItem('admin_token');
+  if(!adminToken){navigate('admin-login');return;}
+  renderAdminPanel('ap-dashboard');
+}
   closeDropdown();
 }
 
@@ -1441,6 +1466,33 @@ async function submitMenuItem(btn){
   renderRestPanel('rp-menu');
 }
 
+// ══ ADMIN AUTH ══
+async function loginAdmin(){
+  const email = document.getElementById('admin-email')?.value?.trim();
+  const password = document.getElementById('admin-pass')?.value;
+  if(!email||!password){showNotif('Please fill all fields');return;}
+  showNotif('⏳ Logging in...');
+  const data = await apiCall('/auth/login','POST',{email,password});
+  if(data && data.token && data.user.role==='admin'){
+    localStorage.setItem('admin_token', data.token);
+    localStorage.setItem('fi_token', data.token);
+    localStorage.setItem('fi_user', JSON.stringify(data.user));
+    DATA.currentUser = data.user;
+    showNotif('Welcome Admin! 🛡️');
+    navigate('admin');
+  } else if(data && data.user && data.user.role!=='admin'){
+    showNotif('❌ You are not an admin');
+  } else {
+    showNotif('❌ Invalid credentials');
+  }
+}
+
+function logoutAdmin(){
+  localStorage.removeItem('admin_token');
+  DATA.currentUser = null;
+  navigate('home');
+  showNotif('Logged out');
+}
 // ══ ADMIN PANEL ══
 function switchAdminPanel(section,li){
   document.querySelectorAll('#page-admin .panel-nav-item').forEach(l=>l.classList.remove('active'));
@@ -1482,24 +1534,27 @@ async function renderAdminPanel(section){
       </table>
     </div>`;
   } else if(section==='ap-restaurants'){
-    const rests=await apiCall('/admin/restaurants')||[];
-    el.innerHTML=`<div class="panel-header"><div class="panel-title">Restaurant Management</div></div>
-    <div style="background:#fff;border-radius:12px;border:1px solid var(--border);overflow:hidden">
-      <table class="data-table" style="width:100%">
-        <thead><tr><th>#</th><th>Name</th><th>Owner</th><th>City</th><th>Status</th><th>Actions</th></tr></thead>
-        <tbody>${rests.length?rests.map((r,i)=>`<tr>
-          <td>${i+1}</td><td style="font-weight:600">${r.name}</td>
-          <td>${r.owner?.name||'—'}</td>
-          <td>${r.address?.city||'—'}</td>
-          <td><span class="badge ${r.status==='active'?'badge-green':r.status==='pending'?'badge-orange':'badge-red'}">${r.status}</span></td>
-          <td class="flex gap-4">
-            ${r.status==='pending'?`<button class="action-btn action-approve" onclick="approveRestaurant('${r._id}')">Approve</button>`:''}
-            <button class="action-btn action-block" onclick="showNotif('Restaurant blocked!')">Block</button>
-            <button class="action-btn action-block" onclick="showNotif('Restaurant removed!')">Remove</button>
-          </td>
-        </tr>`).join(''):`<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text2)">No restaurants yet</td></tr>`}</tbody>
-      </table>
-    </div>`;
+  const rests = await apiCall('/admin/restaurants')||[];
+  el.innerHTML=`<div class="panel-header"><div class="panel-title">Restaurant Management</div><div class="panel-sub">${rests.length} total restaurants</div></div>
+  <div style="background:#fff;border-radius:12px;border:1px solid var(--border);overflow:hidden">
+    <table class="data-table" style="width:100%">
+      <thead><tr><th>#</th><th>Name</th><th>Owner</th><th>City</th><th>Cuisine</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>${rests.length ? rests.map((r,i)=>`<tr>
+        <td>${i+1}</td>
+        <td style="font-weight:600">${r.name}</td>
+        <td>${r.owner?.name||'—'}</td>
+        <td>${r.address?.city||'—'}</td>
+        <td style="font-size:12px;color:var(--text2)">${Array.isArray(r.cuisine)?r.cuisine.join(', '):r.cuisine||'—'}</td>
+        <td><span class="badge ${r.status==='active'?'badge-green':r.status==='pending'?'badge-orange':'badge-red'}">${r.status}</span></td>
+        <td class="flex gap-4">
+          ${r.status==='pending'?`<button class="action-btn action-approve" onclick="approveRestaurant('${r._id}')">✅ Approve</button>`:''}
+          ${r.status==='active'?`<button class="action-btn action-block" onclick="blockRestaurant('${r._id}')">🚫 Block</button>`:''}
+          <button class="action-btn action-block" onclick="deleteRestaurant('${r._id}')">🗑️ Delete</button>
+        </td>
+      </tr>`).join('') : `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text2)">No restaurants registered yet</td></tr>`}
+      </tbody>
+    </table>
+  </div>`;
   } else if(section==='ap-orders'){
     el.innerHTML=`<div class="panel-header"><div class="panel-title">Order Management</div></div>
     <div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:40px;text-align:center;color:var(--text2)">
@@ -1526,9 +1581,21 @@ async function renderAdminPanel(section){
 }
 
 async function approveRestaurant(id){
-  const res=await apiCall('/admin/restaurants/'+id+'/status','PATCH',{status:'active'});
-  if(res){showNotif('Restaurant approved ✅');renderAdminPanel('ap-restaurants');}
-  else showNotif('Approval failed');
+  const res = await apiCall('/admin/restaurants/'+id+'/status','PATCH',{status:'active'});
+  if(res){ showNotif('✅ Restaurant approved!'); renderAdminPanel('ap-restaurants'); }
+  else showNotif('❌ Failed to approve');
+}
+
+async function blockRestaurant(id){
+  const res = await apiCall('/admin/restaurants/'+id+'/status','PATCH',{status:'blocked'});
+  if(res){ showNotif('Restaurant blocked'); renderAdminPanel('ap-restaurants'); }
+  else showNotif('❌ Failed');
+}
+
+async function deleteRestaurant(id){
+  if(!confirm('Delete this restaurant?')) return;
+  showNotif('Deleting...');
+  renderAdminPanel('ap-restaurants');
 }
 
 // ══ CHARTS ══
