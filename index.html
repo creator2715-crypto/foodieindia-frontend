@@ -1344,16 +1344,14 @@ function renderRestPanel(section){
       </table>
     </div>`;
   } else if(section==='rp-menu'){
-    el.innerHTML=`<div class="panel-header flex-between">
-      <div><div class="panel-title">Menu Manager</div><div class="panel-sub">Add and manage your food items</div></div>
-      <button class="btn btn-primary btn-sm" onclick="showAddItemModal()">+ Add Item</button>
-    </div>
-    <div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:24px;text-align:center;color:var(--text2)">
-      <div style="font-size:48px;margin-bottom:12px">🍽️</div>
-      <div style="font-weight:600;margin-bottom:8px">No menu items yet</div>
-      <div style="font-size:13px;margin-bottom:16px">Start adding items to your menu</div>
-      <button class="btn btn-primary btn-sm" onclick="showAddItemModal()">+ Add First Item</button>
-    </div>`;
+     el.innerHTML=`<div class="panel-header flex-between">
+    <div><div class="panel-title">Menu Manager</div><div class="panel-sub">Add and manage your food items</div></div>
+    <button class="btn btn-primary btn-sm" onclick="showAddItemModal()">+ Add Item</button>
+  </div>
+  <div id="menu-items-list">
+    <div style="text-align:center;padding:40px;color:var(--text2)">⏳ Loading menu...</div>
+  </div>`;
+  fetchRestaurantMenu();
   } else if(section==='rp-analytics'){
     el.innerHTML=`<div class="panel-header"><div class="panel-title">Analytics</div></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
@@ -1450,21 +1448,143 @@ function previewItemImage(input){
 }
 
 async function submitMenuItem(btn){
-  const name=document.getElementById('mi-name').value;
-  const price=document.getElementById('mi-price').value;
-  const desc=document.getElementById('mi-desc').value;
-  const cat=document.getElementById('mi-cat').value;
-  const fileInput=document.getElementById('mi-image');
-  const isVeg=document.querySelector('input[name="ftype"]:checked').value==='veg';
-  if(!name||!price){showNotif('Name and price are required');return;}
-  btn.textContent='Uploading...';btn.disabled=true;
-  let imageUrl='';
-  if(fileInput.files[0]) imageUrl=await uploadImage(fileInput.files[0])||'';
-  const result=await apiCall('/menu','POST',{name,price:Number(price),description:desc,category:cat,isVeg,image:imageUrl});
-  btn.closest('.modal-overlay').remove();
-  showNotif(result?'Item added to menu ✅':'Item saved ✅');
-  renderRestPanel('rp-menu');
+  const name = document.getElementById('mi-name').value.trim();
+  const price = document.getElementById('mi-price').value;
+  const desc = document.getElementById('mi-desc').value.trim();
+  const cat = document.getElementById('mi-cat').value;
+  const fileInput = document.getElementById('mi-image');
+  const isVeg = document.querySelector('input[name="ftype"]:checked').value === 'veg';
+
+  if(!name || !price){ showNotif('Name and price are required'); return; }
+
+  btn.textContent = 'Uploading image...';
+  btn.disabled = true;
+
+  // Upload image to Cloudinary first
+  let imageUrl = '';
+  if(fileInput.files[0]){
+    showNotif('Uploading image to Cloudinary...');
+    imageUrl = await uploadImage(fileInput.files[0]) || '';
+    if(!imageUrl){
+      showNotif('⚠️ Image upload failed, saving without image');
+    }
+  }
+
+  btn.textContent = 'Saving item...';
+
+  // Save to backend
+  const result = await apiCall('/menu', 'POST', {
+    name,
+    price: Number(price),
+    description: desc,
+    category: cat,
+    isVeg,
+    image: imageUrl,
+  });
+
+  if(result && result._id){
+    btn.closest('.modal-overlay').remove();
+    showNotif('✅ ' + name + ' added to menu!');
+    renderRestPanel('rp-menu');
+    // Also refresh menu display if needed
+    fetchRestaurantMenu();
+  } else {
+    showNotif('❌ Failed to add item. Make sure your restaurant is approved.');
+    btn.textContent = 'Add to Menu';
+    btn.disabled = false;
+  }
 }
+// ══ RESTAURANT MENU FETCH ══
+async function fetchRestaurantMenu(){
+  // First get the restaurant owned by current user
+  const data = await apiCall('/restaurants');
+  let restId = null;
+
+  if(data && data.restaurants){
+    const myRest = data.restaurants.find(r => 
+      r.owner === DATA.currentUser?._id || 
+      r.owner?._id === DATA.currentUser?._id
+    );
+    if(myRest) restId = myRest._id;
+  }
+
+  const listEl = document.getElementById('menu-items-list');
+  if(!listEl) return;
+
+  if(!restId){
+    listEl.innerHTML = `<div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:40px;text-align:center;color:var(--text2)">
+      <div style="font-size:48px;margin-bottom:12px">🏪</div>
+      <div style="font-weight:600;margin-bottom:6px">Restaurant not found</div>
+      <div style="font-size:13px">Make sure your restaurant is approved by admin</div>
+    </div>`;
+    return;
+  }
+
+  const items = await apiCall('/menu/' + restId) || [];
+
+  if(!items.length){
+    listEl.innerHTML = `<div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:40px;text-align:center;color:var(--text2)">
+      <div style="font-size:48px;margin-bottom:12px">🍽️</div>
+      <div style="font-weight:600;margin-bottom:6px">No menu items yet</div>
+      <div style="font-size:13px;margin-bottom:16px">Start adding items to your menu</div>
+      <button class="btn btn-primary btn-sm" onclick="showAddItemModal()">+ Add First Item</button>
+    </div>`;
+    return;
+  }
+
+  // Group by category
+  const cats = [...new Set(items.map(i => i.category))];
+
+  listEl.innerHTML = cats.map(cat => `
+    <div style="background:#fff;border-radius:12px;border:1px solid var(--border);overflow:hidden;margin-bottom:16px">
+      <div style="padding:14px 20px;border-bottom:1px solid var(--border);font-weight:700;font-size:15px;background:var(--surface2)">${cat}</div>
+      ${items.filter(i => i.category === cat).map(item => `
+        <div style="display:flex;align-items:center;gap:16px;padding:16px 20px;border-bottom:1px solid var(--border)">
+          <div style="width:64px;height:64px;border-radius:10px;background:var(--surface2);flex:0 0 auto;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:28px">
+            ${item.image && item.image.startsWith('http') 
+              ? `<img src="${item.image}" style="width:100%;height:100%;object-fit:cover">` 
+              : '🍽️'}
+          </div>
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:14px;margin-bottom:3px">${item.name}</div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${item.description || ''}</div>
+            <div style="font-weight:700;font-size:15px;color:var(--text)">₹${item.price}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="display:flex;align-items:center;gap:6px;font-size:13px">
+              <span style="color:${item.isVeg ? 'var(--green)' : 'var(--red)'}">
+                ${item.isVeg ? '🟢 Veg' : '🔴 Non-Veg'}
+              </span>
+            </div>
+            <div class="toggle ${item.isAvailable ? 'on' : ''}" 
+              onclick="toggleItemAvailability('${item._id}', this)"></div>
+            <button class="action-btn action-approve" 
+              onclick="editMenuItem('${item._id}')">Edit</button>
+            <button class="action-btn action-block" 
+              onclick="deleteMenuItem('${item._id}')">Delete</button>
+          </div>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+async function toggleItemAvailability(id, toggleEl){
+  const isOn = toggleEl.classList.contains('on');
+  toggleEl.classList.toggle('on');
+  await apiCall('/menu/' + id, 'PUT', { isAvailable: !isOn });
+  showNotif('Item ' + (!isOn ? 'available' : 'hidden') + ' ✅');
+}
+
+async function deleteMenuItem(id){
+  if(!confirm('Delete this item?')) return;
+  const res = await apiCall('/menu/' + id, 'DELETE');
+  if(res){ showNotif('Item deleted'); fetchRestaurantMenu(); }
+  else showNotif('❌ Delete failed');
+}
+
+function editMenuItem(id){
+  showNotif('Edit feature coming soon!');
+}
+
 
 // ══ ADMIN AUTH ══
 async function loginAdmin(){
