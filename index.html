@@ -428,7 +428,7 @@ label{font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bot
     <div class="flex-between" style="margin-bottom:20px">
       <h2 style="font-size:22px;font-weight:800">Restaurants</h2>
       <div style="display:flex;align-items:center;gap:10px">
-        <input type="text" id="rest-search" placeholder="Search..." oninput="renderAllRestaurants()" style="width:220px;padding:9px 14px;font-size:13px">
+        <input type="text" id="rest-search" placeholder="Search restaurants or cuisine..." oninput="searchRestaurants(this.value)" style="width:260px;padding:9px 14px;font-size:13px">
         <select id="sort-select" onchange="renderAllRestaurants()" style="width:auto;padding:9px 14px;font-size:13px">
           <option value="relevance">Relevance</option>
           <option value="rating">Top Rated</option>
@@ -793,7 +793,12 @@ function navigate(page){
   window.scrollTo(0,0);
   document.getElementById('main-navbar').style.display = PANEL_PAGES.includes(page)?'none':'';
   if(page==='home') renderHome();
-  else if(page==='restaurants') renderAllRestaurants();
+  else if(page==='restaurants'){
+  // Render immediately with cached data
+  renderRestaurantsGrid('all-restaurants-grid', DATA.restaurants);
+  // Then fetch fresh data from API
+  renderAllRestaurants();
+}
   else if(page==='cart') renderCart();
   else if(page==='orders') renderOrders();
   else if(page==='profile') renderProfile();
@@ -1010,19 +1015,20 @@ function renderOffersCarousel(){
 }
 
 async function fetchRestaurants(){
-  const data=await apiCall('/restaurants');
-  if(data&&data.restaurants&&data.restaurants.length>0){
-    DATA.restaurants=data.restaurants.map(r=>({
-      ...r,id:r._id,
-      icon:r.image||'🍛',
-      deliveryTime:r.deliveryTime||30,
-      price:r.minOrder||200,
-      veg:r.tags?.includes('veg')||false,
-      offer:null,
-      cuisine:Array.isArray(r.cuisine)?r.cuisine.join(', '):r.cuisine||'',
+  const data = await apiCall('/restaurants');
+  if(data && data.restaurants && data.restaurants.length > 0){
+    DATA.restaurants = data.restaurants.map(r=>({
+      ...r,
+      id: r._id,
+      icon: r.image||'🍛',
+      deliveryTime: r.deliveryTime||30,
+      price: r.minOrder||200,
+      veg: r.tags?.includes('veg')||false,
+      offer: null,
+      cuisine: Array.isArray(r.cuisine) ? r.cuisine.join(', ') : r.cuisine||'',
     }));
   }
-  renderRestaurantsGrid('restaurants-grid',DATA.restaurants);
+  renderRestaurantsGrid('restaurants-grid', DATA.restaurants);
 }
 
 function renderRestaurantsGrid(containerId, rests){
@@ -1062,28 +1068,62 @@ function renderRestaurantsGrid(containerId, rests){
 }
 
 // ══ ALL RESTAURANTS ══
-async function renderAllRestaurants(){
-  const data=await apiCall('/restaurants');
-  let rests=DATA.restaurants;
-  if(data&&data.restaurants&&data.restaurants.length>0){
-    rests=data.restaurants.map(r=>({
-      ...r,id:r._id,
-      icon:r.image||'🍛',
-      deliveryTime:r.deliveryTime||30,
-      price:r.minOrder||200,
-      veg:r.tags?.includes('veg')||false,
-      cuisine:Array.isArray(r.cuisine)?r.cuisine.join(', '):r.cuisine||'',
-    }));
-    DATA.restaurants=rests;
+
+function searchRestaurants(query){
+  const q = query.toLowerCase();
+  let rests = [...DATA.restaurants];
+  if(q){
+    rests = rests.filter(r=>
+      (r.name||'').toLowerCase().includes(q)||
+      (r.cuisine||'').toLowerCase().includes(q)
+    );
   }
-  const q=(document.getElementById('rest-search')?.value||'').toLowerCase();
-  const vegOnly=document.getElementById('veg-only')?.checked;
-  const sort=document.getElementById('sort-select')?.value||'relevance';
-  if(q) rests=rests.filter(r=>(r.name||'').toLowerCase().includes(q)||(r.cuisine||'').toLowerCase().includes(q));
-  if(vegOnly) rests=rests.filter(r=>r.veg);
+  renderRestaurantsGrid('all-restaurants-grid', rests);
+}
+
+async function renderAllRestaurants(){
+  // Show loading first
+  const gridEl = document.getElementById('all-restaurants-grid');
+  if(gridEl) gridEl.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--text2)">
+    <div style="font-size:40px;margin-bottom:12px">⏳</div>
+    <div style="font-weight:600">Loading restaurants...</div>
+  </div>`;
+
+  // Fetch from API
+  const data = await apiCall('/restaurants');
+  let rests = [];
+
+  if(data && data.restaurants && data.restaurants.length > 0){
+    rests = data.restaurants.map(r=>({
+      ...r,
+      id: r._id,
+      icon: r.image||'🍛',
+      deliveryTime: r.deliveryTime||30,
+      price: r.minOrder||200,
+      veg: r.tags?.includes('veg')||false,
+      offer: null,
+      cuisine: Array.isArray(r.cuisine) ? r.cuisine.join(', ') : r.cuisine||'',
+    }));
+    DATA.restaurants = rests;
+  } else {
+    // Use cached data if API fails
+    rests = DATA.restaurants;
+  }
+
+  // Apply filters
+  const q = (document.getElementById('rest-search')?.value||'').toLowerCase();
+  const vegOnly = document.getElementById('veg-only')?.checked;
+  const sort = document.getElementById('sort-select')?.value||'relevance';
+
+  if(q) rests = rests.filter(r=>
+    (r.name||'').toLowerCase().includes(q) ||
+    (r.cuisine||'').toLowerCase().includes(q)
+  );
+  if(vegOnly) rests = rests.filter(r=>r.veg);
   if(sort==='rating') rests.sort((a,b)=>(b.rating||0)-(a.rating||0));
   else if(sort==='delivery') rests.sort((a,b)=>(a.deliveryTime||30)-(b.deliveryTime||30));
-  renderRestaurantsGrid('all-restaurants-grid',rests);
+
+  renderRestaurantsGrid('all-restaurants-grid', rests);
 }
 
 function filterRests(type,el){
@@ -1155,7 +1195,7 @@ async function openMenu(restId){
                     <button class="qty-btn" onclick="changeQty('${item._id}',1)">+</button>
                   </div>
                 </div>`
-              :`<button class="add-btn" onclick="addToCart('${item._id}','${restId}',${JSON.stringify(item).replace(/'/g,'')})">+ ADD</button>`
+              :`<button class="add-btn" onclick="addToCart('${item._id}','${restId}','${item.name.replace(/'/g,"\\'")}',${item.price},'${item.image||''}',${item.isVeg})">+ ADD</button>`
             }
           </div>
         </div>`;
@@ -1170,13 +1210,26 @@ function scrollToSection(cat){
 }
 
 // ══ CART ══
-function addToCart(itemId,restId,item){
+function addToCart(itemId, restId, itemName, itemPrice, itemImage, itemIsVeg){
   if(!DATA.currentUser){navigate('login');showNotif('Please login to add items');return;}
-  const existing=DATA.cart.find(c=>c.id===itemId);
-  if(existing){existing.qty++;}
-  else{DATA.cart.push({id:itemId,_id:itemId,name:item.name,price:item.price,icon:'🍽️',image:item.image||'',veg:item.isVeg,qty:1,restId});}
+  const existing = DATA.cart.find(c=>c.id===itemId);
+  if(existing){
+    existing.qty++;
+  } else {
+    DATA.cart.push({
+      id: itemId,
+      _id: itemId,
+      name: itemName,
+      price: Number(itemPrice),
+      image: itemImage||'',
+      veg: itemIsVeg,
+      qty: 1,
+      restId: restId
+    });
+  }
   updateCartCount();
-  showNotif(item.name+' added to cart 🛒');
+  showNotif(itemName+' added to cart 🛒');
+  // Re-render menu to show qty controls
   openMenu(restId);
 }
 
