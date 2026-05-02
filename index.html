@@ -784,6 +784,7 @@ async function uploadImage(file){
 
 // ══ NAV ══
 function navigate(page){
+  if(currentPage==='orders' && page!=='orders') stopOrderTracking();
   if(PROTECTED.includes(page)&&!DATA.currentUser){showNotif('Please login to continue');navigate('login');return;}
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const el = document.getElementById('page-'+page);
@@ -800,7 +801,10 @@ function navigate(page){
   renderAllRestaurants();
 }
   else if(page==='cart') renderCart();
-  else if(page==='orders') renderOrders();
+  else if(page==='orders'){
+  renderOrders();
+  startOrderTracking();
+}
   else if(page==='profile') renderProfile();
   else if(page==='restaurant-panel') renderRestPanel('rp-dashboard');
   else if(page==='admin'){
@@ -1358,36 +1362,110 @@ async function placeOrder(){
 }
 
 // ══ ORDERS ══
-function renderOrders(){
-  const latest=DATA.orders[0];
-  document.getElementById('order-id').textContent=latest?.id?.replace('FI','')||'------';
-  const stepsEl=document.getElementById('track-steps');
-  const stepIdx=STATUSES.indexOf(latest?.status||'Pending');
-  const pct=(stepIdx/(STATUSES.length-1))*80;
-  // Clear old steps (keep lines)
-  Array.from(stepsEl.children).forEach(c=>{if(!c.classList.contains('track-line')&&!c.classList.contains('track-fill')) c.remove();});
+async function renderOrders(){
+  // Fetch real orders from backend
+  const data = await apiCall('/orders/my');
+
+  if(data && data.length > 0){
+    DATA.orders = data.map(o=>({
+      id: 'FI'+o._id.slice(-6).toUpperCase(),
+      _id: o._id,
+      items: o.items.map(i=>i.name+' x'+i.quantity),
+      total: o.total,
+      status: o.status,
+      time: new Date(o.createdAt).toLocaleTimeString('en-IN'),
+      date: new Date(o.createdAt).toLocaleDateString('en-IN'),
+      rest: o.restaurant?.name||'Restaurant',
+    }));
+  }
+
+  const latest = DATA.orders[0];
+
+  // Update order ID display
+  document.getElementById('order-id').textContent = latest?.id?.replace('FI','')||'------';
+
+  // Render tracking steps
+  const statusMap = {
+    'pending': 0,
+    'accepted': 1,
+    'preparing': 2,
+    'out_for_delivery': 3,
+    'delivered': 4,
+    'cancelled': 0,
+  };
+
+  const stepIdx = statusMap[latest?.status||'pending']||0;
+  const pct = (stepIdx/(STATUSES.length-1))*80;
+
+  const stepsEl = document.getElementById('track-steps');
+  // Remove old steps but keep lines
+  Array.from(stepsEl.children).forEach(c=>{
+    if(!c.classList.contains('track-line')&&!c.classList.contains('track-fill')) c.remove();
+  });
+
   STATUSES.forEach((s,i)=>{
-    const div=document.createElement('div');
-    div.className='track-step';
-    const done=i<=stepIdx;
-    div.innerHTML=`<div class="step-dot ${done?'done':''}">${STATUS_ICONS[i]}</div><div class="step-label ${done?'done':''}">${s}</div>`;
+    const div = document.createElement('div');
+    div.className = 'track-step';
+    const done = i<=stepIdx;
+    const isActive = i===stepIdx;
+    div.innerHTML=`
+      <div class="step-dot ${done?'done':''} ${isActive&&latest?.status!=='delivered'?'active':''}">
+        ${STATUS_ICONS[i]}
+      </div>
+      <div class="step-label ${done?'done':''}">${s}</div>`;
     stepsEl.appendChild(div);
   });
-  setTimeout(()=>{const f=document.getElementById('track-fill');if(f)f.style.width=pct+'%';},100);
-  const histEl=document.getElementById('order-history');
-  if(!DATA.orders.length){histEl.innerHTML='<div style="text-align:center;padding:40px;color:var(--text2)">No orders yet</div>';return;}
-  histEl.innerHTML=DATA.orders.map(o=>`
+
+  setTimeout(()=>{
+    const f = document.getElementById('track-fill');
+    if(f) f.style.width = pct+'%';
+  },100);
+
+  // ETA display
+  const etaEl = document.getElementById('eta-display');
+  if(latest?.status==='delivered'){
+    etaEl.textContent = 'Delivered ✅';
+    etaEl.style.color = 'var(--green)';
+  } else if(latest?.status==='cancelled'){
+    etaEl.textContent = 'Cancelled ❌';
+    etaEl.style.color = 'var(--red)';
+  } else {
+    etaEl.textContent = '30–35 min';
+    etaEl.style.color = 'var(--red)';
+  }
+
+  // Render order history
+  const histEl = document.getElementById('order-history');
+  if(!DATA.orders.length){
+    histEl.innerHTML=`<div style="text-align:center;padding:60px;color:var(--text2)">
+      <div style="font-size:48px;margin-bottom:12px">📦</div>
+      <div style="font-weight:600">No orders yet</div>
+      <div style="font-size:13px;margin-top:6px">Place your first order!</div>
+      <button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="navigate('restaurants')">Order Now</button>
+    </div>`;
+    return;
+  }
+
+  histEl.innerHTML = DATA.orders.map(o=>`
     <div class="order-history-card">
       <div class="flex-between">
         <div>
-          <div style="font-weight:700;font-size:15px">${o.rest||'Restaurant'}</div>
-          <div style="font-size:12px;color:var(--text2);margin-top:2px">${o.id} • ${o.time}</div>
-          <div style="font-size:13px;margin-top:8px;color:var(--text2)">${Array.isArray(o.items)?o.items.join(', '):o.items}</div>
+          <div style="font-weight:700;font-size:15px">${o.rest}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">#${o.id} • ${o.date} ${o.time}</div>
+          <div style="font-size:13px;margin-top:8px;color:var(--text2)">
+            ${Array.isArray(o.items)?o.items.join(', '):o.items}
+          </div>
         </div>
-        <div style="text-align:right">
-          <span class="badge ${o.status==='Delivered'?'badge-green':o.status==='Pending'?'badge-orange':'badge-gray'}">${o.status}</span>
+        <div style="text-align:right;min-width:120px">
+          <span class="badge ${
+            o.status==='delivered'?'badge-green':
+            o.status==='pending'?'badge-orange':
+            o.status==='cancelled'?'badge-red':'badge-gray'
+          }">${o.status}</span>
           <div style="font-weight:800;font-size:16px;margin-top:8px">₹${o.total}</div>
-          ${o.status==='Delivered'?`<button class="btn btn-outline btn-sm" style="margin-top:8px" onclick="showNotif('Reorder feature coming soon!')">Reorder</button>`:''}
+          ${o.status==='delivered'?`
+            <button class="btn btn-outline btn-sm" style="margin-top:8px"
+              onclick="showNotif('Reorder coming soon!')">Reorder</button>`:''}
         </div>
       </div>
     </div>`).join('');
@@ -1402,7 +1480,7 @@ function renderProfile(){
   switchProfileTab('info',document.querySelector('.profile-nav-item'));
 }
 
-function switchProfileTab(tab,li){
+async function switchProfileTab(tab,li){
   document.querySelectorAll('.profile-nav-item').forEach(l=>l.classList.remove('active'));
   li?.classList.add('active');
   const el=document.getElementById('profile-main');
@@ -1419,18 +1497,42 @@ function switchProfileTab(tab,li){
       <button class="btn btn-primary btn-sm" onclick="showNotif('Profile updated ✅')">Save Changes</button>
     </div>`;
   } else if(tab==='orders'){
-    el.innerHTML=DATA.orders.length?DATA.orders.map(o=>`
-      <div class="order-history-card">
-        <div class="flex-between">
-          <div><div style="font-weight:700">${o.rest}</div>
-          <div style="font-size:12px;color:var(--text2)">${o.id} • ${o.date}</div>
-          <div style="font-size:13px;margin-top:6px">${Array.isArray(o.items)?o.items.join(', '):o.items}</div></div>
-          <div style="text-align:right">
-            <span class="badge ${o.status==='Delivered'?'badge-green':'badge-orange'}">${o.status}</span>
-            <div style="font-weight:800;margin-top:6px">₹${o.total}</div>
+  el.innerHTML=`<div style="text-align:center;padding:40px;color:var(--text2)">⏳ Loading orders...</div>`;
+  // Fetch fresh orders from backend
+  const data = await apiCall('/orders/my');
+  if(data && data.length > 0){
+    DATA.orders = data.map(o=>({
+      id: 'FI'+o._id.slice(-6).toUpperCase(),
+      _id: o._id,
+      items: o.items.map(i=>i.name+' x'+i.quantity),
+      total: o.total,
+      status: o.status,
+      time: new Date(o.createdAt).toLocaleTimeString('en-IN'),
+      date: new Date(o.createdAt).toLocaleDateString('en-IN'),
+      rest: o.restaurant?.name||'Restaurant',
+    }));
+  }
+  el.innerHTML = DATA.orders.length ? DATA.orders.map(o=>`
+    <div class="order-history-card">
+      <div class="flex-between">
+        <div>
+          <div style="font-weight:700">${o.rest}</div>
+          <div style="font-size:12px;color:var(--text2)">#${o.id} • ${o.date}</div>
+          <div style="font-size:13px;margin-top:6px;color:var(--text2)">
+            ${Array.isArray(o.items)?o.items.join(', '):o.items}
           </div>
         </div>
-      </div>`).join(''):`<div style="text-align:center;padding:60px;color:var(--text2)"><div style="font-size:48px;margin-bottom:12px">📦</div><div style="font-weight:600">No orders yet</div></div>`;
+        <div style="text-align:right">
+          <span class="badge ${o.status==='delivered'?'badge-green':o.status==='pending'?'badge-orange':'badge-gray'}">${o.status}</span>
+          <div style="font-weight:800;margin-top:6px">₹${o.total}</div>
+        </div>
+      </div>
+    </div>`).join('') :
+  `<div style="text-align:center;padding:60px;color:var(--text2)">
+    <div style="font-size:48px;margin-bottom:12px">📦</div>
+    <div style="font-weight:600">No orders yet</div>
+    <button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="navigate('restaurants')">Order Now</button>
+  </div>`;
   } else if(tab==='addresses'){
     el.innerHTML=`<div style="background:#fff;border-radius:16px;border:1px solid var(--border);padding:28px">
       <div class="flex-between" style="margin-bottom:20px"><h3 style="font-size:17px;font-weight:700">Saved Addresses</h3><button class="btn btn-primary btn-sm" onclick="showNotif('Add address feature coming soon!')">+ Add</button></div>
@@ -1938,6 +2040,31 @@ function showNotif(msg){
   el.textContent=msg;el.classList.remove('hidden');
   clearTimeout(el._t);
   el._t=setTimeout(()=>el.classList.add('hidden'),3000);
+}
+
+// ══ REAL TIME TRACKING ══
+let trackingInterval = null;
+
+function startOrderTracking(){
+  // Clear any existing interval
+  if(trackingInterval) clearInterval(trackingInterval);
+
+  // Refresh every 15 seconds
+  trackingInterval = setInterval(async ()=>{
+    if(currentPage !== 'orders') {
+      clearInterval(trackingInterval);
+      return;
+    }
+    console.log('Refreshing order status...');
+    await renderOrders();
+  }, 15000);
+}
+
+function stopOrderTracking(){
+  if(trackingInterval){
+    clearInterval(trackingInterval);
+    trackingInterval = null;
+  }
 }
 
 // ══ INIT ══
