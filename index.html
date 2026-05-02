@@ -745,7 +745,15 @@ let dropdownOpen = false;
 
 // ══ API ══
 async function apiCall(endpoint, method='GET', body=null){
-  const token = localStorage.getItem('admin_token') || localStorage.getItem('fi_token');
+  // Use admin token only for admin routes
+  // Use regular token for everything else
+  let token;
+  if(endpoint.startsWith('/admin')){
+    token = localStorage.getItem('admin_token');
+  } else {
+    token = localStorage.getItem('fi_token');
+  }
+
   try {
     const res = await fetch(API_BASE + endpoint, {
       method,
@@ -763,7 +771,6 @@ async function apiCall(endpoint, method='GET', body=null){
     return null;
   }
 }
-
 async function uploadImage(file){
   const fd = new FormData();
   fd.append('file',file);
@@ -884,26 +891,60 @@ async function loginRestaurant(){
 }
 
 async function registerRestaurant(btn){
-  const name=document.getElementById('rl-name')?.value?.trim();
-  const email=document.getElementById('rl-email')?.value?.trim();
-  const phone=document.getElementById('rl-phone')?.value?.trim();
-  const password=document.getElementById('rl-pass')?.value;
-  const address=document.getElementById('rl-address')?.value?.trim();
-  const cuisine=document.getElementById('rl-cuisine')?.value;
+  const name = document.getElementById('rl-name')?.value?.trim();
+  const email = document.getElementById('rl-email')?.value?.trim();
+  const phone = document.getElementById('rl-phone')?.value?.trim();
+  const password = document.getElementById('rl-pass')?.value;
+  const address = document.getElementById('rl-address')?.value?.trim();
+  const cuisine = document.getElementById('rl-cuisine')?.value;
+
   if(!name||!email||!password){showNotif('Please fill all fields');return;}
-  btn.textContent='Registering...';btn.disabled=true;
-  const userData=await apiCall('/auth/signup','POST',{name,email,phone,password,role:'restaurant'});
-  if(userData&&userData.token){
-    localStorage.setItem('fi_token',userData.token);
-    localStorage.setItem('fi_user',JSON.stringify(userData.user));
-    DATA.currentUser=userData.user;
-    await apiCall('/restaurants','POST',{name,email,phone,cuisine:[cuisine],address:{street:address,city:'India'},status:'pending'});
-    showNotif('Restaurant registered! Awaiting admin approval ✅');
+
+  btn.textContent='Registering...';
+  btn.disabled=true;
+
+  // Step 1 — Create user account with restaurant role
+  showNotif('Creating account...');
+  const userData = await apiCall('/auth/signup','POST',{
+    name, email, phone, password, role:'restaurant'
+  });
+
+  if(!userData || !userData.token){
+    showNotif('❌ Registration failed. Email may already exist.');
+    btn.textContent='Register & Continue →';
+    btn.disabled=false;
+    return;
+  }
+
+  // Step 2 — Save token so next API call is authenticated
+  localStorage.setItem('fi_token', userData.token);
+  localStorage.setItem('fi_user', JSON.stringify(userData.user));
+  DATA.currentUser = userData.user;
+
+  // Step 3 — Create restaurant profile
+  showNotif('Creating restaurant profile...');
+  const restData = await apiCall('/restaurants','POST',{
+    name,
+    email,
+    phone,
+    cuisine: [cuisine],
+    address: { street: address, city: 'India' },
+    status: 'pending',
+    deliveryTime: 30,
+    minOrder: 100,
+    deliveryFee: 40,
+  });
+
+  if(restData && restData._id){
+    showNotif('✅ Registered! Awaiting admin approval.');
     navigate('restaurant-panel');
   } else {
-    showNotif('Registration failed. Email may already exist.');
-    btn.textContent='Register & Continue →';btn.disabled=false;
+    showNotif('✅ Account created! Restaurant profile failed - contact admin.');
+    navigate('restaurant-panel');
   }
+
+  btn.textContent='Register & Continue →';
+  btn.disabled=false;
 }
 
 function logout(){
@@ -1625,7 +1666,7 @@ function logoutAdmin(){
   localStorage.removeItem('admin_token');
   DATA.currentUser = null;
   navigate('home');
-  showNotif('Logged out');
+  showNotif('Admin logged out');
 }
 // ══ ADMIN PANEL ══
 function switchAdminPanel(section,li){
