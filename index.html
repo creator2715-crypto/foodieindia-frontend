@@ -80,25 +80,26 @@ label{font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bot
 .dropdown-item:hover{background:var(--surface2)}
 
 /* ── HERO ── */
-.hero{background:#fff;padding:0;border-bottom:1px solid var(--border)}
-.hero-inner{max-width:1200px;margin:0 auto;padding:32px 20px 24px;display:grid;grid-template-columns:1fr 340px;gap:40px;align-items:center}
-.hero-tag{display:inline-flex;align-items:center;gap:6px;background:#fde8ea;color:var(--red);padding:5px 12px;border-radius:50px;font-size:12px;font-weight:600;margin-bottom:16px}
-.hero h1{font-size:clamp(28px,4vw,42px);font-weight:800;color:var(--text);line-height:1.15;margin-bottom:8px;letter-spacing:-1px}
-.hero h1 em{color:var(--red);font-style:normal}
-.hero-sub{color:var(--text2);font-size:15px;margin-bottom:24px;line-height:1.6}
-.hero-search-wrap{background:#fff;border:2px solid var(--border);border-radius:10px;display:flex;overflow:hidden;box-shadow:var(--shadow)}
+.hero{position:relative;overflow:hidden;min-height:460px;display:flex;align-items:center;border-bottom:none}
+.hero-bg{position:absolute;inset:0;background:url('https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1600&q=80') center/cover no-repeat;z-index:0}
+.hero-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(15,10,8,0.97) 0%,rgba(25,15,10,0.90) 55%,rgba(50,15,5,0.80) 100%)}
+.hero-inner{max-width:900px;margin:0 auto;padding:72px 20px 64px;display:flex;flex-direction:column;align-items:flex-start;position:relative;z-index:1;width:100%}
+.hero-tag{display:inline-flex;align-items:center;gap:6px;background:rgba(226,55,68,0.2);border:1px solid rgba(226,55,68,0.4);color:#ff8a95;padding:6px 14px;border-radius:50px;font-size:12px;font-weight:600;margin-bottom:20px}
+.hero h1{font-size:clamp(32px,4.5vw,54px);font-weight:800;color:#fff;line-height:1.1;margin-bottom:12px;letter-spacing:-1.5px}
+.hero h1 em{color:#ff6b7a;font-style:normal}
+.hero-sub{color:rgba(255,255,255,0.62);font-size:16px;margin-bottom:28px;line-height:1.65;max-width:520px}
+.hero-search-wrap{background:#fff;border:2px solid transparent;border-radius:12px;display:flex;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.4);max-width:660px;width:100%}
 .hero-search-wrap:focus-within{border-color:var(--red)}
 .hero-search-loc{display:flex;align-items:center;gap:8px;padding:0 16px;border-right:1.5px solid var(--border);min-width:160px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text2)}
 .hero-search-loc:hover{color:var(--red)}
 .hero-search-loc select{border:none;background:transparent;font-size:13px;font-weight:600;color:var(--text);padding:14px 0;cursor:pointer;outline:none;width:100%}
-.hero-search-input{flex:1;border:none;outline:none;padding:14px 16px;font-size:14px;font-family:'Inter',sans-serif;background:transparent}
-.hero-search-btn{background:var(--red);border:none;color:#fff;padding:0 24px;cursor:pointer;font-weight:600;font-size:14px;font-family:'Inter',sans-serif;transition:background .18s;white-space:nowrap}
+.hero-search-input{flex:1;border:none;outline:none;padding:15px 16px;font-size:14px;font-family:'Inter',sans-serif;background:transparent}
+.hero-search-btn{background:var(--red);border:none;color:#fff;padding:0 28px;cursor:pointer;font-weight:700;font-size:14px;font-family:'Inter',sans-serif;transition:background .18s;white-space:nowrap}
 .hero-search-btn:hover{background:var(--red-dark)}
-.hero-stats{display:flex;gap:24px;margin-top:20px}
-.hero-stat strong{display:block;font-size:20px;font-weight:800;color:var(--text)}
-.hero-stat span{font-size:12px;color:var(--text2)}
-.hero-img-side{background:linear-gradient(135deg,#fde8ea,#fff7ed);border-radius:20px;height:220px;display:flex;align-items:center;justify-content:center;font-size:80px;position:relative;overflow:hidden}
-.hero-img-side::before{content:'';position:absolute;width:200px;height:200px;background:rgba(226,55,68,.06);border-radius:50%;top:-40px;right:-40px}
+.hero-stats{display:flex;gap:36px;margin-top:28px}
+.hero-stat strong{display:block;font-size:22px;font-weight:800;color:#fff}
+.hero-stat span{font-size:12px;color:rgba(255,255,255,0.55)}
+.hero-img-side{display:none}
 
 /* ── LOCATION BAR ── */
 .location-bar{background:#fff;border-bottom:1px solid var(--border);padding:10px 0}
@@ -115,11 +116,13 @@ label{font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bot
 .see-all:hover{text-decoration:underline}
 
 /* ── CATEGORIES ── */
-.cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:12px}
-.cat-card{text-align:center;cursor:pointer;padding:12px 8px;border-radius:12px;border:1.5px solid transparent;transition:all .18s;background:#fff}
-.cat-card:hover,.cat-card.active{border-color:var(--red);background:#fde8ea}
-.cat-icon{width:64px;height:64px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 8px;transition:all .18s}
-.cat-card:hover .cat-icon,.cat-card.active .cat-icon{background:#fcd5d8}
+.cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:14px}
+.cat-card{text-align:center;cursor:pointer;padding:14px 8px;border-radius:14px;border:1.5px solid transparent;transition:all .18s;background:#fff}
+.cat-card:hover,.cat-card.active{border-color:var(--red);background:#fff5f5;transform:translateY(-3px)}
+.cat-icon{width:76px;height:76px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;border:2.5px solid #fff;box-shadow:0 4px 14px rgba(0,0,0,0.12);transition:all .2s;background:var(--surface2)}
+.cat-icon img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
+.cat-card:hover .cat-icon{box-shadow:0 6px 20px rgba(226,55,68,0.25);transform:scale(1.06)}
+.cat-card:hover .cat-name{color:var(--red)}
 .cat-name{font-size:12px;font-weight:600;color:var(--text2)}
 
 /* ── RESTAURANT CARDS ── */
@@ -337,29 +340,27 @@ label{font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bot
 <div id="page-home" class="page active">
   <!-- Hero -->
   <div class="hero">
+    <div class="hero-bg"></div>
     <div class="hero-inner">
-      <div>
-        <div class="hero-tag">🚀 Free delivery on first 3 orders</div>
-        <h1>Order food from<br>the best <em>restaurants</em></h1>
-        <p class="hero-sub">Fresh, hot food delivered to your door. 500+ restaurants across India.</p>
-        <div class="hero-search-wrap">
-          <div class="hero-search-loc">
-            📍
-            <select>
-              <option>Delhi</option><option>Mumbai</option><option>Bangalore</option>
-              <option>Hyderabad</option><option>Chennai</option><option>Kolkata</option>
-            </select>
-          </div>
-          <input class="hero-search-input" type="text" placeholder="Search for restaurants, cuisines..." id="hero-search-input">
-          <button class="hero-search-btn" onclick="doSearch()">Search</button>
+      <div class="hero-tag">🚀 Free delivery on first 3 orders</div>
+      <h1>Order food from<br>the best <em>restaurants</em></h1>
+      <p class="hero-sub">Fresh, hot food delivered to your door. 500+ restaurants across India.</p>
+      <div class="hero-search-wrap">
+        <div class="hero-search-loc">
+          📍
+          <select>
+            <option>Delhi</option><option>Mumbai</option><option>Bangalore</option>
+            <option>Hyderabad</option><option>Chennai</option><option>Kolkata</option>
+          </select>
         </div>
-        <div class="hero-stats">
-          <div class="hero-stat"><strong>500+</strong><span>Restaurants</span></div>
-          <div class="hero-stat"><strong>25 min</strong><span>Avg Delivery</span></div>
-          <div class="hero-stat"><strong>2L+</strong><span>Happy Users</span></div>
-        </div>
+        <input class="hero-search-input" type="text" placeholder="Search for restaurants, cuisines..." id="hero-search-input">
+        <button class="hero-search-btn" onclick="doSearch()">Search</button>
       </div>
-      <div class="hero-img-side">🍛</div>
+      <div class="hero-stats">
+        <div class="hero-stat"><strong>500+</strong><span>Restaurants</span></div>
+        <div class="hero-stat"><strong>25 min</strong><span>Avg Delivery</span></div>
+        <div class="hero-stat"><strong>2L+</strong><span>Happy Users</span></div>
+      </div>
     </div>
   </div>
 
@@ -709,18 +710,17 @@ const DATA = {
   restaurants: [],
   orders: [],
   categories: [
-    {id:'biryani',name:'Biryani',icon:'🍛'},
-    {id:'pizza',name:'Pizza',icon:'🍕'},
-    {id:'burger',name:'Burgers',icon:'🍔'},
-    {id:'rolls',name:'Rolls',icon:'🌯'},
-    {id:'chinese',name:'Chinese',icon:'🥡'},
-    {id:'desserts',name:'Desserts',icon:'🍰'},
-    {id:'thali',name:'Thali',icon:'🍱'},
-    {id:'south',name:'South Indian',icon:'🫓'},
-    {id:'pasta',name:'Pasta',icon:'🍝'},
-    {id:'noodles',name:'Noodles',icon:'🍜'},
-    {id:'cafe',name:'Cafe',icon:'☕'},
-    {id:'beverages',name:'Beverages',icon:'🥤'},
+    {id:'biryani',  name:'Biryani',     icon:'🍛', img:'https://res.cloudinary.com/dj8shx4yn/image/upload/v1777759038/biryani_g7cnk5.jpg'},
+    {id:'pizza',    name:'Pizza',       icon:'🍕', img:'https://res.cloudinary.com/dj8shx4yn/image/upload/v1777759104/pizza_uefldb.jpg'},
+    {id:'burger',   name:'Burgers',     icon:'🍔', img:'https://res.cloudinary.com/dj8shx4yn/image/upload/v1777759039/burger_n7ccv3.jpg'},
+    {id:'rolls',    name:'Rolls',       icon:'🌯', img:'https://res.cloudinary.com/dj8shx4yn/image/upload/v1777759043/rools_fqsg81.jpg'},
+    {id:'chinese',  name:'Chinese',     icon:'🥡', img:'https://res.cloudinary.com/dj8shx4yn/image/upload/v1777759039/chinese_z9bjbp.jpg'},
+    {id:'desserts', name:'Desserts',    icon:'🍰', img:'https://res.cloudinary.com/dj8shx4yn/image/upload/v1777759041/dessert_e1i77b.jpg'},
+    {id:'thali',    name:'Thali',       icon:'🍱', img:'https://res.cloudinary.com/dj8shx4yn/image/upload/v1777759046/thali_m2bofu.jpg'},
+    {id:'south',    name:'South Indian',icon:'🫓', img:'https://res.cloudinary.com/dj8shx4yn/image/upload/v1777759044/south_loflwc.jpg'},
+    {id:'pasta',    name:'Pasta',       icon:'🍝', img:'https://res.cloudinary.com/dj8shx4yn/image/upload/v1777759042/pasta_hllnbk.jpg'},
+    {id:'noodles',  name:'Noodles',     icon:'🍜', img:'https://res.cloudinary.com/dj8shx4yn/image/upload/v1777759041/noodles_sajpst.jpg'},
+    {id:'beverages',name:'Beverages',   icon:'🥤', img:'https://res.cloudinary.com/dj8shx4yn/image/upload/v1777759038/bevrages_vyqxm6.jpg'},
   ],
   offers: [
     {title:'FLAT 20% OFF',desc:'On orders above ₹299',code:'SAVE20',color:'#e23744'},
@@ -990,13 +990,21 @@ async function renderHome(){
 }
 
 function renderCategories(){
-  const el=document.getElementById('categories');
-  if(!el)return;
-  el.innerHTML=DATA.categories.map(c=>`
+  const el = document.getElementById('categories');
+  if(!el) return;
+  el.innerHTML = DATA.categories.map(c => `
     <div class="cat-card" onclick="filterByCategory('${c.id}')">
-      <div class="cat-icon">${c.icon}</div>
+      <div class="cat-icon">
+        <img
+          src="${c.img}"
+          alt="${c.name}"
+          style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block"
+          onerror="this.style.display='none';this.parentElement.innerHTML='<span style=font-size:34px>${c.icon}</span>'"
+        >
+      </div>
       <div class="cat-name">${c.name}</div>
-    </div>`).join('');
+    </div>
+  `).join('');
 }
 
 function filterByCategory(id){
