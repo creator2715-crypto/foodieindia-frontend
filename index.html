@@ -149,11 +149,18 @@ label{font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bot
 .filter-chip.active{background:var(--red);color:#fff;border-color:var(--red)}
 
 /* ── OFFER CARDS ── */
-.offer-card{flex:0 0 280px;border-radius:14px;padding:20px;color:#fff;position:relative;overflow:hidden;cursor:pointer}
-.offer-card::after{content:'%';position:absolute;right:12px;bottom:-10px;font-size:88px;font-weight:900;opacity:.12}
-.offer-title{font-size:22px;font-weight:800;margin-bottom:4px}
-.offer-desc{font-size:13px;opacity:.9;margin-bottom:14px}
-.offer-code{display:inline-block;background:rgba(255,255,255,.2);border:1.5px dashed rgba(255,255,255,.5);border-radius:6px;padding:4px 12px;font-size:12px;font-weight:700;letter-spacing:1px}
+.offer-card{flex:0 0 300px;border-radius:16px;padding:0;color:#fff;position:relative;overflow:hidden;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,0.2);transition:transform .2s,box-shadow .2s}
+.offer-card:hover{transform:translateY(-4px);box-shadow:0 16px 40px rgba(0,0,0,0.3)}
+.offer-card-inner{padding:24px;position:relative;z-index:1}
+.offer-card::before{content:'';position:absolute;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,0.08);top:-40px;right:-40px}
+.offer-card::after{content:'';position:absolute;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,0.06);bottom:-30px;left:-20px}
+.offer-badge{display:inline-block;background:rgba(255,255,255,0.2);border-radius:50px;padding:3px 10px;font-size:11px;font-weight:700;letter-spacing:.5px;margin-bottom:10px;border:1px solid rgba(255,255,255,0.3)}
+.offer-title{font-size:26px;font-weight:900;margin-bottom:4px;letter-spacing:-0.5px}
+.offer-desc{font-size:13px;opacity:.85;margin-bottom:16px;line-height:1.5}
+.offer-code-wrap{display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.15);border:1.5px dashed rgba(255,255,255,0.5);border-radius:8px;padding:8px 14px}
+.offer-code{font-size:15px;font-weight:800;letter-spacing:2px}
+.offer-copy-btn{font-size:11px;font-weight:600;background:rgba(255,255,255,0.25);border:none;color:#fff;padding:3px 10px;border-radius:4px;cursor:pointer;transition:all .15s}
+.offer-copy-btn:hover{background:rgba(255,255,255,0.4)}
 
 /* ── MENU PAGE ── */
 .menu-hero{background:#fff;border-bottom:1px solid var(--border);padding:20px;max-width:1200px;margin:0 auto}
@@ -305,8 +312,8 @@ label{font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bot
   <div class="navbar-inner">
     <div class="logo" onclick="navigate('home')">🍛 Foodie<span class="logo-dot">India</span></div>
     <div class="flex gap-8">
-      <button class="location-btn" onclick="showNotif('📍 Location feature coming soon!')">
-        📍 <span>Delhi, India</span> ▾
+      <button class="location-btn" onclick="toggleLocationDropdown()">
+        📍 <span id="nav-location-label">All Cities</span> ▾
       </button>
     </div>
     <div class="nav-links" id="nav-links">
@@ -348,12 +355,17 @@ label{font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bot
       <div class="hero-search-wrap">
         <div class="hero-search-loc">
           📍
-          <select>
-            <option>Delhi</option><option>Mumbai</option><option>Bangalore</option>
-            <option>Hyderabad</option><option>Chennai</option><option>Kolkata</option>
+          <select id="location-select" onchange="onLocationChange(this.value)">
+            <option value="all">All Cities</option>
+            <option value="Delhi">Delhi</option>
+            <option value="Mumbai">Mumbai</option>
+            <option value="Bangalore">Bangalore</option>
+            <option value="Hyderabad">Hyderabad</option>
+            <option value="Chennai">Chennai</option>
+            <option value="Kolkata">Kolkata</option>
           </select>
         </div>
-        <input class="hero-search-input" type="text" placeholder="Search for restaurants, cuisines..." id="hero-search-input">
+        <input class="hero-search-input" type="text" placeholder="Search restaurants, cuisines or dishes..." id="hero-search-input" oninput="heroSearch(this.value)">
         <button class="hero-search-btn" onclick="doSearch()">Search</button>
       </div>
       <div class="hero-stats">
@@ -505,8 +517,18 @@ label{font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bot
       <div>
         <div class="cart-summary-box">
           <div style="font-size:16px;font-weight:700;margin-bottom:16px">Bill Details</div>
+          <!-- Available Coupons -->
+          <div style="margin-bottom:14px">
+            <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:8px">🏷️ Available Coupons</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              ${Object.entries(DATA.coupons||{}).map(([code,c])=>`
+                <div onclick="quickApplyCoupon('${code}')" style="cursor:pointer;border:1.5px dashed var(--red);border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;color:var(--red);background:#fde8ea;transition:all .15s" title="${c.desc}">
+                  ${code} <span style="font-size:10px;color:var(--text2);font-weight:500">| ${c.desc.slice(0,20)}...</span>
+                </div>`).join('')}
+            </div>
+          </div>
           <div style="display:flex;gap:8px;margin-bottom:16px">
-            <input type="text" id="promo-input" placeholder="Promo / coupon code" style="border-radius:6px 0 0 6px;border-right:none">
+            <input type="text" id="promo-input" placeholder="Enter coupon code" style="border-radius:6px 0 0 6px;border-right:none">
             <button class="btn btn-primary" onclick="applyPromo()" style="border-radius:0 6px 6px 0;padding:0 16px;white-space:nowrap">Apply</button>
           </div>
           <div class="summary-row"><span>Item Total</span><span id="cart-subtotal">₹0</span></div>
@@ -723,11 +745,21 @@ const DATA = {
     {id:'beverages',name:'Beverages',   icon:'🥤', img:'https://res.cloudinary.com/dj8shx4yn/image/upload/v1777759038/bevrages_vyqxm6.jpg'},
   ],
   offers: [
-    {title:'FLAT 20% OFF',desc:'On orders above ₹299',code:'SAVE20',color:'#e23744'},
-    {title:'FREE DELIVERY',desc:'On your first 3 orders',code:'FREEDEL',color:'#f97316'},
-    {title:'BOGO DEAL',desc:'Buy 1 Get 1 Free',code:'BOGO50',color:'#0f9c4e'},
-    {title:'₹100 CASHBACK',desc:'On UPI payment',code:'UPI100',color:'#7c3aed'},
+    {title:'FLAT 20% OFF',desc:'On orders above ₹299',code:'SAVE20',color:'#e23744',gradient:'linear-gradient(135deg,#e23744,#ff6b7a)',tag:'HOT DEAL',min:299,discount:'20%'},
+    {title:'FREE DELIVERY',desc:'No minimum order required',code:'FREEDEL',color:'#f97316',gradient:'linear-gradient(135deg,#f97316,#fb923c)',tag:'LIMITED',min:0,discount:'FREE DEL'},
+    {title:'FLAT ₹60 OFF',desc:'On your first order above ₹199',code:'FIRST60',color:'#0f9c4e',gradient:'linear-gradient(135deg,#0f9c4e,#22c55e)',tag:'NEW USER',min:199,discount:'₹60'},
+    {title:'₹100 CASHBACK',desc:'On UPI payment above ₹499',code:'UPI100',color:'#7c3aed',gradient:'linear-gradient(135deg,#7c3aed,#a78bfa)',tag:'UPI OFFER',min:499,discount:'₹100'},
+    {title:'FLAT 15% OFF',desc:'On weekend orders',code:'WEEKEND15',color:'#0891b2',gradient:'linear-gradient(135deg,#0891b2,#22d3ee)',tag:'WEEKEND',min:149,discount:'15%'},
+    {title:'BUY 1 GET 1',desc:'On selected restaurants',code:'BOGO50',color:'#be185d',gradient:'linear-gradient(135deg,#be185d,#ec4899)',tag:'BOGO',min:0,discount:'FREE ITEM'},
   ],
+  coupons: {
+    SAVE20:   {discount:0.20, type:'percent', min:299,  desc:'20% off on orders above ₹299'},
+    FREEDEL:  {discount:40,   type:'flat',    min:0,    desc:'Free delivery on this order'},
+    FIRST60:  {discount:60,   type:'flat',    min:199,  desc:'₹60 off on your first order'},
+    UPI100:   {discount:100,  type:'flat',    min:499,  desc:'₹100 cashback on UPI payment'},
+    WEEKEND15:{discount:0.15, type:'percent', min:149,  desc:'15% off on weekend orders'},
+    BOGO50:   {discount:0.10, type:'percent', min:0,    desc:'Extra 10% off (BOGO deal)'},
+  },
   panelOrders:[
     {id:'FI001',cust:'Customer 1',items:'Item A x2',amount:320,status:'Pending',time:'12:45 PM'},
     {id:'FI002',cust:'Customer 2',items:'Item B x1',amount:180,status:'Preparing',time:'12:50 PM'},
@@ -993,14 +1025,11 @@ function renderCategories(){
   const el = document.getElementById('categories');
   if(!el) return;
   el.innerHTML = DATA.categories.map(c => `
-    <div class="cat-card" onclick="filterByCategory('${c.id}')">
+    <div class="cat-card" onclick="searchByCategory('${c.name}','${c.id}')">
       <div class="cat-icon">
-        <img
-          src="${c.img}"
-          alt="${c.name}"
+        <img src="${c.img}" alt="${c.name}"
           style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block"
-          onerror="this.style.display='none';this.parentElement.innerHTML='<span style=font-size:34px>${c.icon}</span>'"
-        >
+          onerror="this.style.display='none';this.parentElement.innerHTML='<span style=font-size:34px>${c.icon}</span>'">
       </div>
       <div class="cat-name">${c.name}</div>
     </div>
@@ -1019,10 +1048,16 @@ function renderOffersCarousel(){
   const el=document.getElementById('offers-scroll');
   if(!el)return;
   el.innerHTML=DATA.offers.map(o=>`
-    <div class="offer-card" style="background:linear-gradient(135deg,${o.color},${o.color}bb)">
-      <div class="offer-title">${o.title}</div>
-      <div class="offer-desc">${o.desc}</div>
-      <div class="offer-code">${o.code}</div>
+    <div class="offer-card" style="background:${o.gradient}">
+      <div class="offer-card-inner">
+        <div class="offer-badge">${o.tag}</div>
+        <div class="offer-title">${o.title}</div>
+        <div class="offer-desc">${o.desc}</div>
+        <div class="offer-code-wrap">
+          <span class="offer-code">${o.code}</span>
+          <button class="offer-copy-btn" onclick="copyAndApplyCoupon('${o.code}',event)">APPLY</button>
+        </div>
+      </div>
     </div>`).join('');
 }
 
@@ -1293,16 +1328,42 @@ function renderCart(){
 
 let promoApplied=false;
 function applyPromo(){
-  const code=document.getElementById('promo-input').value.toUpperCase();
-  const valid={SAVE20:.2,FREEDEL:0,UPI100:0,BOGO50:.1};
-  if(valid[code]!==undefined&&!promoApplied){
-    promoApplied=true;
-    const disc=code==='UPI100'?100:Math.round(DATA.cart.reduce((s,c)=>s+c.price*c.qty,0)*valid[code]);
-    document.getElementById('discount-row').style.display='flex';
-    document.getElementById('discount-amount').textContent='-₹'+disc;
-    showNotif('Promo applied! Saved ₹'+disc+' 🎉');
-  } else if(promoApplied){showNotif('Promo already applied');}
-  else{showNotif('Invalid promo code');}
+  const code = document.getElementById('promo-input').value.toUpperCase().trim();
+  if(!code){ showNotif('Please enter a coupon code'); return; }
+  if(promoApplied){ showNotif('A coupon is already applied. Remove it first.'); return; }
+  const coupon = DATA.coupons[code];
+  if(!coupon){ showNotif('❌ Invalid coupon code. Try: SAVE20, FIRST60, UPI100'); return; }
+  const subtotal = DATA.cart.reduce((s,c)=>s+c.price*c.qty,0);
+  if(subtotal < coupon.min){ showNotif(`❌ Min. order ₹${coupon.min} required for this coupon`); return; }
+  promoApplied = true;
+  const disc = coupon.type==='percent' ? Math.round(subtotal*coupon.discount) : coupon.discount;
+  document.getElementById('discount-row').style.display='flex';
+  document.getElementById('discount-amount').textContent='-₹'+disc;
+  // Update total
+  const deliveryFee = 40;
+  const newTotal = subtotal - disc + deliveryFee + 5;
+  document.getElementById('cart-total').textContent='₹'+newTotal;
+  showNotif('🎉 Coupon applied! You saved ₹'+disc);
+  // Show coupon info
+  const promoInput = document.getElementById('promo-input');
+  if(promoInput){ promoInput.style.borderColor='var(--green)'; promoInput.disabled=true; }
+}
+
+function copyAndApplyCoupon(code, event){
+  event.stopPropagation();
+  // Copy to clipboard
+  navigator.clipboard?.writeText(code).catch(()=>{});
+  showNotif('✅ Code "'+code+'" copied! Go to cart and apply it.');
+}
+
+function removeCoupon(){
+  promoApplied = false;
+  document.getElementById('discount-row').style.display='none';
+  document.getElementById('discount-amount').textContent='-₹0';
+  const promoInput = document.getElementById('promo-input');
+  if(promoInput){ promoInput.value=''; promoInput.style.borderColor=''; promoInput.disabled=false; }
+  renderCart();
+  showNotif('Coupon removed');
 }
 
 async function placeOrder(){
@@ -1315,13 +1376,8 @@ async function placeOrder(){
   // Get restaurant ID from cart
   const restId = DATA.cart[0]?.restId;
   if(!restId){showNotif('❌ Restaurant not found');return;}
-
   const restInfo = DATA.restaurants.find(r=>(r.id||r._id)===restId);
-  if(restInfo && restInfo.isOpen === false){
-    showNotif('❌ This restaurant is currently CLOSED. Please try again later.');
-    return;
-  }
-
+  if(restInfo && restInfo.isOpen===false){ showNotif('❌ This restaurant is currently CLOSED'); return; }
   showNotif('⏳ Placing order...');
 
   const orderPayload = {
@@ -1481,7 +1537,7 @@ async function renderOrders(){
             <button class="btn btn-outline btn-sm" style="margin-top:8px"
               onclick="showNotif('Reorder coming soon!')">Reorder</button>
             <button class="btn btn-primary btn-sm" style="margin-top:6px"
-              onclick="leaveReview('${o._id}','${o.rest}')">⭐ Review</button>`:''}
+              onclick="leaveReview('${o._id||o.id}','${o.rest}')">⭐ Rate</button>`:''}
         </div>
       </div>
     </div>`).join('');
@@ -1640,19 +1696,16 @@ async function renderRestPanel(section){
     const totalRevenue = analyticsOrders.reduce((s,o)=>s+(o.total||0),0);
     const delivered = analyticsOrders.filter(o=>o.status==='delivered').length;
     const cancelled = analyticsOrders.filter(o=>o.status==='cancelled').length;
-    const anTotal = document.getElementById('an-total');
-    const anRevenue = document.getElementById('an-revenue');
-    const anDelivered = document.getElementById('an-delivered');
-    const anCancelled = document.getElementById('an-cancelled');
-    if(anTotal) anTotal.textContent = analyticsOrders.length;
-    if(anRevenue) anRevenue.textContent = '₹'+totalRevenue;
-    if(anDelivered) anDelivered.textContent = delivered;
-    if(anCancelled) anCancelled.textContent = cancelled;
+    const anTotal=document.getElementById('an-total'); const anRevenue=document.getElementById('an-revenue');
+    const anDelivered=document.getElementById('an-delivered'); const anCancelled=document.getElementById('an-cancelled');
+    if(anTotal) anTotal.textContent=analyticsOrders.length;
+    if(anRevenue) anRevenue.textContent='₹'+totalRevenue;
+    if(anDelivered) anDelivered.textContent=delivered;
+    if(anCancelled) anCancelled.textContent=cancelled;
     const weekOrders=[0,0,0,0,0,0,0], weekRevenue=[0,0,0,0,0,0,0];
-    const now = new Date();
+    const now=new Date();
     analyticsOrders.forEach(o=>{
-      const d=new Date(o.createdAt);
-      const diff=Math.floor((now-d)/(1000*60*60*24));
+      const d=new Date(o.createdAt); const diff=Math.floor((now-d)/(1000*60*60*24));
       if(diff>=0&&diff<7){weekOrders[6-diff]++;weekRevenue[6-diff]+=o.total||0;}
     });
     setTimeout(()=>{
@@ -1662,29 +1715,24 @@ async function renderRestPanel(section){
   } else if(section==='rp-reviews'){
     el.innerHTML=`<div class="panel-header"><div class="panel-title">Customer Reviews</div><div class="panel-sub">What customers say about you</div></div>
     <div id="reviews-list"><div style="text-align:center;padding:40px;color:var(--text2)">⏳ Loading reviews...</div></div>`;
-    const restData2 = await apiCall('/restaurants');
-    let myRestId = null;
-    if(restData2?.restaurants){
-      const myRest2 = restData2.restaurants.find(r=>
-        (r.owner&&(r.owner._id===DATA.currentUser?._id||r.owner.toString()===DATA.currentUser?._id))||
-        r.email===DATA.currentUser?.email
+    const revRestData = await apiCall('/restaurants');
+    let myRevRestId = null;
+    if(revRestData?.restaurants){
+      const myRevRest = revRestData.restaurants.find(r=>
+        (r.owner&&(r.owner._id===DATA.currentUser?._id||r.owner.toString()===DATA.currentUser?._id))||r.email===DATA.currentUser?.email
       );
-      if(myRest2) myRestId = myRest2._id;
+      if(myRevRest) myRevRestId = myRevRest._id;
     }
     const reviewsEl = document.getElementById('reviews-list');
     if(!reviewsEl) return;
-    if(!myRestId){
-      reviewsEl.innerHTML=`<div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:40px;text-align:center;color:var(--text2)">Restaurant not found</div>`;
-      return;
-    }
-    const reviews = await apiCall('/reviews/'+myRestId) || [];
+    if(!myRevRestId){ reviewsEl.innerHTML=`<div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:40px;text-align:center;color:var(--text2)">Restaurant not found</div>`; return; }
+    const reviews = await apiCall('/reviews/'+myRevRestId) || [];
     if(!reviews.length){
       reviewsEl.innerHTML=`<div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:48px;text-align:center;color:var(--text2)">
         <div style="font-size:48px;margin-bottom:12px">⭐</div>
         <div style="font-weight:600;margin-bottom:6px">No reviews yet</div>
-        <div style="font-size:13px">When customers rate your restaurant, reviews will appear here</div>
-      </div>`;
-      return;
+        <div style="font-size:13px">Reviews will appear here when customers rate your restaurant</div>
+      </div>`; return;
     }
     const avg=(reviews.reduce((s,r)=>s+r.rating,0)/reviews.length).toFixed(1);
     reviewsEl.innerHTML=`
@@ -1695,18 +1743,11 @@ async function renderRestPanel(section){
           <div style="font-size:13px;color:var(--text2);margin-top:4px">${reviews.length} reviews</div>
         </div>
         <div style="flex:1">
-          ${[5,4,3,2,1].map(star=>{
-            const count=reviews.filter(r=>r.rating===star).length;
-            const pct=Math.round(count/reviews.length*100);
+          ${[5,4,3,2,1].map(star=>{const count=reviews.filter(r=>r.rating===star).length;const pct=Math.round(count/reviews.length*100);
             return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-              <span style="font-size:13px;min-width:12px">${star}</span>
-              <span style="color:#f5a623;font-size:12px">★</span>
-              <div style="flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden">
-                <div style="width:${pct}%;height:100%;background:#f5a623;border-radius:4px"></div>
-              </div>
-              <span style="font-size:12px;color:var(--text2);min-width:20px">${count}</span>
-            </div>`;
-          }).join('')}
+              <span style="font-size:13px;min-width:12px">${star}</span><span style="color:#f5a623;font-size:12px">★</span>
+              <div style="flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden"><div style="width:${pct}%;height:100%;background:#f5a623;border-radius:4px"></div></div>
+              <span style="font-size:12px;color:var(--text2);min-width:20px">${count}</span></div>`;}).join('')}
         </div>
       </div>
       ${reviews.map(r=>`
@@ -1714,10 +1755,7 @@ async function renderRestPanel(section){
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
             <div style="display:flex;align-items:center;gap:10px">
               <div style="width:40px;height:40px;border-radius:50%;background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex:0 0 auto">${(r.user?.name||'U')[0].toUpperCase()}</div>
-              <div>
-                <div style="font-weight:600;font-size:14px">${r.user?.name||'Customer'}</div>
-                <div style="font-size:11px;color:var(--text2)">${new Date(r.createdAt).toLocaleDateString('en-IN')}</div>
-              </div>
+              <div><div style="font-weight:600;font-size:14px">${r.user?.name||'Customer'}</div><div style="font-size:11px;color:var(--text2)">${new Date(r.createdAt).toLocaleDateString('en-IN')}</div></div>
             </div>
             <div style="color:#f5a623;font-size:16px">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div>
           </div>
@@ -1727,33 +1765,23 @@ async function renderRestPanel(section){
         </div>`).join('')}`;
   } else if(section==='rp-settings'){
     const settingsData = await apiCall('/restaurants');
-    let myRest = null;
-    if(settingsData?.restaurants){
-      myRest = settingsData.restaurants.find(r=>
-        (r.owner&&(r.owner._id===DATA.currentUser?._id||r.owner.toString()===DATA.currentUser?._id))||
-        r.email===DATA.currentUser?.email
-      );
-    }
-    const isOpen = myRest?.isOpen !== false;
-    const restId = myRest?._id || '';
+    let myRest=null;
+    if(settingsData?.restaurants){ myRest=settingsData.restaurants.find(r=>(r.owner&&(r.owner._id===DATA.currentUser?._id||r.owner.toString()===DATA.currentUser?._id))||r.email===DATA.currentUser?.email); }
+    const isOpen = myRest?.isOpen!==false;
+    const restId = myRest?._id||'';
     el.innerHTML=`<div class="panel-header"><div class="panel-title">Restaurant Settings</div></div>
     <div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:24px">
       <div style="background:${isOpen?'var(--green-light)':'#fde8ea'};border:1.5px solid ${isOpen?'var(--green)':'var(--red)'};border-radius:12px;padding:16px 20px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between" id="open-close-banner">
         <div>
-          <div style="font-weight:700;font-size:15px;color:${isOpen?'var(--green)':'var(--red)'}" id="open-close-title">
-            ${isOpen?'🟢 Restaurant is OPEN':'🔴 Restaurant is CLOSED'}
-          </div>
-          <div style="font-size:13px;color:var(--text2);margin-top:4px" id="open-close-sub">
-            ${isOpen?'Customers can place orders right now':'Customers cannot place orders — restaurant is offline'}
-          </div>
+          <div style="font-weight:700;font-size:15px;color:${isOpen?'var(--green)':'var(--red)'}" id="open-close-title">${isOpen?'🟢 Restaurant is OPEN':'🔴 Restaurant is CLOSED'}</div>
+          <div style="font-size:13px;color:var(--text2);margin-top:4px" id="open-close-sub">${isOpen?'Customers can place orders right now':'Customers cannot place orders'}</div>
         </div>
         <div style="display:flex;align-items:center;gap:12px">
           <span style="font-size:13px;font-weight:600;color:var(--text2)" id="open-close-label">${isOpen?'Open':'Closed'}</span>
           <div class="toggle ${isOpen?'on':''}" id="open-close-toggle" onclick="toggleRestaurantOpenClose(this,'${restId}')"></div>
         </div>
       </div>
-      <div class="form-group">
-        <label>Restaurant Cover Image</label>
+      <div class="form-group"><label>Restaurant Cover Image</label>
         <div style="display:flex;align-items:center;gap:16px;margin-top:8px">
           <div id="rest-img-preview" style="width:90px;height:90px;border-radius:12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:36px;overflow:hidden;border:2px solid var(--border);flex:0 0 auto">
             ${myRest?.image?`<img src="${myRest.image}" style="width:100%;height:100%;object-fit:cover;border-radius:10px">`:'🍴'}
@@ -1761,15 +1789,14 @@ async function renderRestPanel(section){
           <div>
             <input type="file" id="rest-image-upload" accept="image/*" style="margin-bottom:8px;padding:6px" onchange="previewRestImage(this)">
             <button class="btn btn-primary btn-sm" onclick="uploadRestaurantImage('${restId}')">⬆️ Upload Image</button>
-            <div style="font-size:12px;color:var(--text2);margin-top:6px">Shows on restaurant card for customers</div>
           </div>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px">
-        <div class="form-group"><label>Restaurant Name</label><input id="set-name" value="${myRest?.name||''}" placeholder="Restaurant name"></div>
+        <div class="form-group"><label>Restaurant Name</label><input id="set-name" value="${myRest?.name||''}" placeholder="Name"></div>
         <div class="form-group"><label>Phone</label><input id="set-phone" value="${myRest?.phone||''}" placeholder="+91 XXXXXXXXXX"></div>
-        <div class="form-group"><label>Min. Order (₹)</label><input type="number" id="set-minorder" value="${myRest?.minOrder||100}" placeholder="100"></div>
-        <div class="form-group"><label>Avg Delivery Time (min)</label><input type="number" id="set-delivery" value="${myRest?.deliveryTime||30}" placeholder="30"></div>
+        <div class="form-group"><label>Min. Order (₹)</label><input type="number" id="set-minorder" value="${myRest?.minOrder||100}"></div>
+        <div class="form-group"><label>Delivery Time (min)</label><input type="number" id="set-delivery" value="${myRest?.deliveryTime||30}"></div>
       </div>
       <div class="form-group"><label>Address</label><textarea rows="2" id="set-address" placeholder="Full address">${myRest?.address?.street||''}</textarea></div>
       <button class="btn btn-primary btn-sm" onclick="saveRestaurantSettings('${restId}')">💾 Save Settings</button>
@@ -1874,63 +1901,6 @@ async function submitMenuItem(btn){
   }
 }
 // ══ RESTAURANT MENU FETCH ══
-async function fetchRestaurantMenu(){
-  const listEl = document.getElementById('menu-items-list');
-  if(!listEl) return;
-  const data = await apiCall('/restaurants');
-  let restId = null;
-  if(data && data.restaurants){
-    const myRest = data.restaurants.find(r=>
-      (r.owner&&(r.owner._id===DATA.currentUser?._id||r.owner.toString()===DATA.currentUser?._id))||
-      r.email===DATA.currentUser?.email
-    );
-    if(myRest) restId = myRest._id;
-  }
-  if(!restId){
-    listEl.innerHTML=`<div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:40px;text-align:center;color:var(--text2)">
-      <div style="font-size:48px;margin-bottom:12px">🏪</div>
-      <div style="font-weight:600;margin-bottom:6px">Restaurant not found or not approved</div>
-      <div style="font-size:13px">Contact admin to approve your restaurant</div>
-    </div>`;
-    return;
-  }
-  const items = await apiCall('/menu/' + restId) || [];
-  if(!items.length){
-    listEl.innerHTML=`<div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:40px;text-align:center;color:var(--text2)">
-      <div style="font-size:48px;margin-bottom:12px">🍽️</div>
-      <div style="font-weight:600;margin-bottom:6px">No menu items yet</div>
-      <div style="font-size:13px;margin-bottom:16px">Start adding items to your menu</div>
-      <button class="btn btn-primary btn-sm" onclick="showAddItemModal()">+ Add First Item</button>
-    </div>`;
-    return;
-  }
-  const cats = [...new Set(items.map(i => i.category))];
-  listEl.innerHTML = cats.map(cat => `
-    <div style="background:#fff;border-radius:12px;border:1px solid var(--border);overflow:hidden;margin-bottom:16px">
-      <div style="padding:14px 20px;border-bottom:1px solid var(--border);font-weight:700;font-size:15px;background:var(--surface2)">${cat}</div>
-      ${items.filter(i=>i.category===cat).map(item=>`
-        <div style="display:flex;align-items:center;gap:16px;padding:16px 20px;border-bottom:1px solid var(--border)">
-          <div style="width:64px;height:64px;border-radius:10px;background:var(--surface2);flex:0 0 auto;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:28px">
-            ${item.image&&item.image.startsWith('http')?`<img src="${item.image}" style="width:100%;height:100%;object-fit:cover;border-radius:10px">`:'🍽️'}
-          </div>
-          <div style="flex:1">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
-              <span style="font-weight:600;font-size:14px">${item.name}</span>
-              <span style="font-size:11px;color:${item.isVeg?'var(--green)':'var(--red)'}">${item.isVeg?'🟢 Veg':'🔴 Non-Veg'}</span>
-            </div>
-            <div style="font-size:12px;color:var(--text2);margin-bottom:4px">${item.description||''}</div>
-            <div style="font-weight:700;font-size:15px">₹${item.price}</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:12px">
-            <div class="toggle ${item.isAvailable?'on':''}" onclick="toggleItemAvailability('${item._id}',this)" title="${item.isAvailable?'Click to hide':'Click to show'}"></div>
-            <span style="font-size:11px;color:var(--text2)">${item.isAvailable?'Visible':'Hidden'}</span>
-            <button class="action-btn action-approve" onclick="showNotif('Edit coming soon!')">Edit</button>
-            <button class="action-btn action-block" onclick="deleteMenuItem('${item._id}')">Delete</button>
-          </div>
-        </div>`).join('')}
-    </div>`).join('');
-}
-
 async function fetchRestaurantOrders(){
   const el = document.getElementById('rest-orders-list');
   if(!el) return;
@@ -2222,159 +2192,6 @@ function renderBarChart(id,data,maxVal){
     </div>`).join('');
 }
 
-// ══ CUSTOMER REVIEW SYSTEM ══
-function leaveReview(orderId, restName){
-  const rest = DATA.restaurants.find(r=>r.name===restName);
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.innerHTML = `<div class="modal">
-    <div class="modal-header">
-      <h3 style="font-size:17px;font-weight:700">Rate ${restName}</h3>
-      <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
-    </div>
-    <div class="modal-body">
-      <div style="text-align:center;margin-bottom:20px">
-        <div style="font-size:13px;color:var(--text2);margin-bottom:12px">Tap a star to rate</div>
-        <div id="star-rating" style="display:flex;justify-content:center;gap:8px;font-size:40px">
-          ${[1,2,3,4,5].map(s=>`<span style="cursor:pointer;opacity:0.3;transition:all .15s"
-            onclick="setStarRating(${s})"
-            onmouseover="hoverStar(${s})"
-            onmouseout="resetStar()">★</span>`).join('')}
-        </div>
-        <div id="rating-label" style="font-size:14px;color:var(--text2);margin-top:8px;font-weight:500">Select rating</div>
-      </div>
-      <div class="form-group"><label>Your Review (optional)</label>
-        <textarea rows="3" id="review-comment" placeholder="Share your experience..."></textarea>
-      </div>
-      <button class="btn btn-primary" style="width:100%;justify-content:center;border-radius:8px"
-        onclick="submitReview('${rest?._id||rest?.id||''}','${orderId}',this)">
-        Submit Review
-      </button>
-    </div>
-  </div>`;
-  document.body.appendChild(overlay);
-  window._selectedRating = 0;
-}
-
-function setStarRating(val){
-  window._selectedRating = val;
-  const stars = document.querySelectorAll('#star-rating span');
-  const labels = ['','Terrible 😞','Poor 😕','Okay 😐','Good 😊','Excellent! 🤩'];
-  stars.forEach((s,i)=>{ s.style.opacity = i < val ? '1' : '0.3'; });
-  const lbl = document.getElementById('rating-label');
-  if(lbl){ lbl.textContent = labels[val]; lbl.style.color = 'var(--red)'; lbl.style.fontWeight='700'; }
-}
-
-function hoverStar(val){
-  document.querySelectorAll('#star-rating span').forEach((s,i)=>{
-    s.style.opacity = i < val ? '1' : '0.3';
-  });
-}
-
-function resetStar(){
-  setStarRating(window._selectedRating || 0);
-}
-
-async function submitReview(restaurantId, orderId, btn){
-  if(!window._selectedRating){ showNotif('Please select a star rating'); return; }
-  if(!restaurantId){ showNotif('❌ Could not find restaurant ID'); return; }
-  const comment = document.getElementById('review-comment')?.value?.trim();
-  btn.textContent = 'Submitting...';
-  btn.disabled = true;
-  const res = await apiCall('/reviews','POST',{
-    restaurantId, orderId, rating: window._selectedRating, comment
-  });
-  if(res){
-    btn.closest('.modal-overlay').remove();
-    window._selectedRating = 0;
-    showNotif('✅ Review submitted! Thank you.');
-  } else {
-    showNotif('❌ Failed to submit review');
-    btn.textContent = 'Submit Review';
-    btn.disabled = false;
-  }
-}
-
-// ══ OPEN/CLOSE RESTAURANT ══
-async function toggleRestaurantOpenClose(toggleEl, restId){
-  const isOn = toggleEl.classList.contains('on');
-  const newStatus = !isOn;
-  toggleEl.classList.toggle('on');
-  const title = document.getElementById('open-close-title');
-  const sub = document.getElementById('open-close-sub');
-  const label = document.getElementById('open-close-label');
-  const banner = document.getElementById('open-close-banner');
-  if(title){ title.textContent = newStatus?'🟢 Restaurant is OPEN':'🔴 Restaurant is CLOSED'; title.style.color=newStatus?'var(--green)':'var(--red)'; }
-  if(sub) sub.textContent = newStatus?'Customers can place orders right now':'Customers cannot place orders — restaurant is offline';
-  if(label) label.textContent = newStatus?'Open':'Closed';
-  if(banner){ banner.style.background=newStatus?'var(--green-light)':'#fde8ea'; banner.style.border=`1.5px solid ${newStatus?'var(--green)':'var(--red)'}`; }
-  if(!restId){ showNotif('❌ Restaurant ID missing'); return; }
-  const res = await apiCall('/restaurants/'+restId,'PUT',{isOpen: newStatus});
-  if(res){ showNotif(newStatus?'🟢 Restaurant is OPEN — customers can order!':'🔴 Restaurant CLOSED — orders blocked!'); }
-  else { showNotif('❌ Failed to update status'); toggleEl.classList.toggle('on'); }
-}
-
-async function replyToReview(reviewId, btn){
-  const reply = prompt('Enter your reply to this review:');
-  if(!reply || !reply.trim()) return;
-  const res = await apiCall('/reviews/'+reviewId+'/reply','PATCH',{reply: reply.trim()});
-  if(res){ showNotif('✅ Reply posted!'); renderRestPanel('rp-reviews'); }
-  else showNotif('❌ Reply failed');
-}
-
-function previewRestImage(input){
-  const file = input.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const p = document.getElementById('rest-img-preview');
-    if(p) p.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;border-radius:10px">`;
-  };
-  reader.readAsDataURL(file);
-}
-
-async function uploadRestaurantImage(restId){
-  const fi = document.getElementById('rest-image-upload');
-  if(!fi?.files[0]){ showNotif('Please select an image first'); return; }
-  showNotif('⏳ Uploading image...');
-  const url = await uploadImage(fi.files[0]);
-  if(!url){ showNotif('❌ Upload failed'); return; }
-  if(!restId){
-    const d = await apiCall('/restaurants');
-    if(d?.restaurants){ const r=d.restaurants.find(r=>r.email===DATA.currentUser?.email); if(r) restId=r._id; }
-  }
-  if(!restId){ showNotif('⚠️ Uploaded! URL: '+url); return; }
-  const res = await apiCall('/restaurants/'+restId,'PUT',{image: url});
-  if(res){
-    showNotif('✅ Restaurant image updated!');
-    const p = document.getElementById('rest-img-preview');
-    if(p) p.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:10px">`;
-  } else showNotif('⚠️ Uploaded but save failed. URL: '+url);
-}
-
-async function saveRestaurantSettings(restId){
-  if(!restId){
-    const d = await apiCall('/restaurants');
-    if(d?.restaurants){ const r=d.restaurants.find(r=>r.email===DATA.currentUser?.email); if(r) restId=r._id; }
-  }
-  if(!restId){ showNotif('❌ Restaurant not found'); return; }
-  const updates = {};
-  const name = document.getElementById('set-name')?.value?.trim();
-  const phone = document.getElementById('set-phone')?.value?.trim();
-  const minOrder = document.getElementById('set-minorder')?.value;
-  const delivery = document.getElementById('set-delivery')?.value;
-  const address = document.getElementById('set-address')?.value?.trim();
-  if(name) updates.name = name;
-  if(phone) updates.phone = phone;
-  if(minOrder) updates.minOrder = Number(minOrder);
-  if(delivery) updates.deliveryTime = Number(delivery);
-  if(address) updates.address = {street: address, city: 'India'};
-  showNotif('⏳ Saving settings...');
-  const res = await apiCall('/restaurants/'+restId,'PUT',updates);
-  if(res) showNotif('✅ Settings saved successfully!');
-  else showNotif('❌ Save failed. Please try again.');
-}
-
 // ══ UTILS ══
 function showNotif(msg){
   const el=document.getElementById('notification');
@@ -2406,6 +2223,224 @@ function stopOrderTracking(){
     clearInterval(trackingInterval);
     trackingInterval = null;
   }
+}
+
+// ══ LOCATION FILTER ══
+let selectedLocation = 'all';
+
+function onLocationChange(city){
+  selectedLocation = city;
+  const label = document.getElementById('nav-location-label');
+  if(label) label.textContent = city==='all' ? 'All Cities' : city;
+  // Filter restaurants by city
+  filterRestaurantsByLocation();
+  showNotif(city==='all' ? '📍 Showing all cities' : '📍 Showing restaurants in '+city);
+}
+
+function toggleLocationDropdown(){
+  const sel = document.getElementById('location-select');
+  if(sel) sel.focus();
+}
+
+function filterRestaurantsByLocation(){
+  let rests = [...DATA.restaurants];
+  if(selectedLocation && selectedLocation !== 'all'){
+    rests = rests.filter(r=>{
+      const city = (r.address?.city||r.address?.street||'').toLowerCase();
+      return city.includes(selectedLocation.toLowerCase());
+    });
+  }
+  renderRestaurantsGrid('restaurants-grid', rests);
+}
+
+// ══ CATEGORY CLICK → FIND RESTAURANTS WITH THAT FOOD ══
+async function searchByCategory(categoryName, categoryId){
+  navigate('restaurants');
+  showNotif('🔍 Finding restaurants with '+categoryName+'...');
+  setTimeout(async ()=>{
+    // Search all restaurants' menus for this category
+    const allRests = DATA.restaurants;
+    const matchingRestIds = new Set();
+    // Check menus for each restaurant
+    for(const rest of allRests){
+      const items = await apiCall('/menu/'+(rest.id||rest._id)) || [];
+      const hasCategory = items.some(item=>
+        item.category?.toLowerCase().includes(categoryName.toLowerCase()) ||
+        item.name?.toLowerCase().includes(categoryName.toLowerCase())
+      );
+      if(hasCategory) matchingRestIds.add(rest.id||rest._id);
+    }
+    const matchingRests = allRests.filter(r=>matchingRestIds.has(r.id||r._id));
+    if(matchingRests.length > 0){
+      renderRestaurantsGrid('all-restaurants-grid', matchingRests);
+      showNotif('Found '+matchingRests.length+' restaurant(s) with '+categoryName);
+    } else {
+      // Fallback - show all and filter by cuisine
+      const bySearch = allRests.filter(r=>
+        (r.cuisine||'').toLowerCase().includes(categoryName.toLowerCase())
+      );
+      renderRestaurantsGrid('all-restaurants-grid', bySearch.length ? bySearch : allRests);
+      showNotif(bySearch.length ? 'Showing restaurants by cuisine' : 'Showing all restaurants');
+    }
+    // Update search bar
+    const searchEl = document.getElementById('rest-search');
+    if(searchEl) searchEl.value = categoryName;
+  }, 100);
+}
+
+// ══ HERO SEARCH - searches restaurants AND food items ══
+function heroSearch(query){
+  if(!query || query.length < 2) return;
+  // Auto-search restaurants
+  let rests = [...DATA.restaurants];
+  const q = query.toLowerCase();
+  const byName = rests.filter(r=>(r.name||'').toLowerCase().includes(q));
+  const byCuisine = rests.filter(r=>(r.cuisine||'').toLowerCase().includes(q));
+  // Combined unique results
+  const combined = [...new Map([...byName,...byCuisine].map(r=>[r.id||r._id,r])).values()];
+  if(combined.length > 0 && currentPage === 'home'){
+    renderRestaurantsGrid('restaurants-grid', combined);
+  }
+}
+
+// ══ QUICK APPLY COUPON ══
+function quickApplyCoupon(code){
+  const promoInput = document.getElementById('promo-input');
+  if(promoInput){ promoInput.value = code; }
+  applyPromo();
+}
+
+// ══ CUSTOMER REVIEW SYSTEM ══
+function leaveReview(orderId, restName){
+  const rest = DATA.restaurants.find(r=>r.name===restName);
+  const restId = rest?.id || rest?._id || '';
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal">
+    <div class="modal-header">
+      <h3 style="font-size:17px;font-weight:700">Rate ${restName}</h3>
+      <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:12px">Tap a star to rate</div>
+        <div id="star-rating" style="display:flex;justify-content:center;gap:8px;font-size:40px">
+          ${[1,2,3,4,5].map(s=>`<span style="cursor:pointer;opacity:0.3;transition:all .15s"
+            onclick="setStarRating(${s})"
+            onmouseover="hoverStar(${s})"
+            onmouseout="resetStar()">★</span>`).join('')}
+        </div>
+        <div id="rating-label" style="font-size:14px;color:var(--text2);margin-top:8px;font-weight:500">Select rating</div>
+      </div>
+      <div class="form-group"><label>Your Review (optional)</label>
+        <textarea rows="3" id="review-comment" placeholder="Share your experience..."></textarea>
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;border-radius:8px"
+        onclick="submitReview('${restId}','${orderId}',this)">Submit Review</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  window._selectedRating = 0;
+}
+
+function setStarRating(val){
+  window._selectedRating = val;
+  const stars = document.querySelectorAll('#star-rating span');
+  const labels = ['','Terrible 😞','Poor 😕','Okay 😐','Good 😊','Excellent! 🤩'];
+  stars.forEach((s,i)=>{ s.style.opacity = i < val ? '1' : '0.3'; });
+  const lbl = document.getElementById('rating-label');
+  if(lbl){ lbl.textContent = labels[val]; lbl.style.color='var(--red)'; lbl.style.fontWeight='700'; }
+}
+function hoverStar(val){ document.querySelectorAll('#star-rating span').forEach((s,i)=>{ s.style.opacity=i<val?'1':'0.3'; }); }
+function resetStar(){ setStarRating(window._selectedRating||0); }
+
+async function submitReview(restaurantId, orderId, btn){
+  if(!window._selectedRating){ showNotif('Please select a star rating'); return; }
+  if(!restaurantId){ showNotif('❌ Restaurant not found'); return; }
+  const comment = document.getElementById('review-comment')?.value?.trim();
+  btn.textContent='Submitting...'; btn.disabled=true;
+  const res = await apiCall('/reviews','POST',{restaurantId,orderId,rating:window._selectedRating,comment});
+  if(res){
+    btn.closest('.modal-overlay').remove();
+    window._selectedRating = 0;
+    showNotif('✅ Review submitted! Thank you.');
+  } else {
+    showNotif('❌ Failed to submit');
+    btn.textContent='Submit Review'; btn.disabled=false;
+  }
+}
+
+// ══ OPEN/CLOSE RESTAURANT ══
+async function toggleRestaurantOpenClose(toggleEl, restId){
+  const isOn = toggleEl.classList.contains('on');
+  const newStatus = !isOn;
+  toggleEl.classList.toggle('on');
+  const title = document.getElementById('open-close-title');
+  const sub = document.getElementById('open-close-sub');
+  const label = document.getElementById('open-close-label');
+  const banner = document.getElementById('open-close-banner');
+  if(title){ title.textContent=newStatus?'🟢 Restaurant is OPEN':'🔴 Restaurant is CLOSED'; title.style.color=newStatus?'var(--green)':'var(--red)'; }
+  if(sub) sub.textContent=newStatus?'Customers can place orders right now':'Customers cannot place orders — restaurant is offline';
+  if(label) label.textContent=newStatus?'Open':'Closed';
+  if(banner){ banner.style.background=newStatus?'var(--green-light)':'#fde8ea'; banner.style.border=`1.5px solid ${newStatus?'var(--green)':'var(--red)'}`; }
+  if(!restId){ showNotif('❌ Restaurant ID missing'); return; }
+  const res = await apiCall('/restaurants/'+restId,'PUT',{isOpen:newStatus});
+  if(res) showNotif(newStatus?'🟢 Restaurant is now OPEN!':'🔴 Restaurant is now CLOSED!');
+  else{ showNotif('❌ Failed to update'); toggleEl.classList.toggle('on'); }
+}
+
+async function replyToReview(reviewId, btn){
+  const reply = prompt('Enter your reply to this review:');
+  if(!reply||!reply.trim()) return;
+  const res = await apiCall('/reviews/'+reviewId+'/reply','PATCH',{reply:reply.trim()});
+  if(res){ showNotif('✅ Reply posted!'); renderRestPanel('rp-reviews'); }
+  else showNotif('❌ Reply failed');
+}
+
+function previewRestImage(input){
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{ const p=document.getElementById('rest-img-preview'); if(p) p.innerHTML=`<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;border-radius:10px">`; };
+  reader.readAsDataURL(file);
+}
+
+async function uploadRestaurantImage(restId){
+  const fi=document.getElementById('rest-image-upload');
+  if(!fi?.files[0]){ showNotif('Please select an image first'); return; }
+  showNotif('⏳ Uploading...');
+  const url=await uploadImage(fi.files[0]);
+  if(!url){ showNotif('❌ Upload failed'); return; }
+  if(!restId){
+    const d=await apiCall('/restaurants');
+    if(d?.restaurants){ const r=d.restaurants.find(r=>r.email===DATA.currentUser?.email); if(r) restId=r._id; }
+  }
+  if(!restId){ showNotif('⚠️ Image uploaded. URL: '+url); return; }
+  const res=await apiCall('/restaurants/'+restId,'PUT',{image:url});
+  if(res){ showNotif('✅ Image updated!'); const p=document.getElementById('rest-img-preview'); if(p) p.innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:10px">`; }
+  else showNotif('⚠️ Uploaded but not saved. URL: '+url);
+}
+
+async function saveRestaurantSettings(restId){
+  if(!restId){
+    const d=await apiCall('/restaurants');
+    if(d?.restaurants){ const r=d.restaurants.find(r=>r.email===DATA.currentUser?.email); if(r) restId=r._id; }
+  }
+  if(!restId){ showNotif('❌ Restaurant not found'); return; }
+  const updates={};
+  const name=document.getElementById('set-name')?.value?.trim();
+  const phone=document.getElementById('set-phone')?.value?.trim();
+  const minOrder=document.getElementById('set-minorder')?.value;
+  const delivery=document.getElementById('set-delivery')?.value;
+  const address=document.getElementById('set-address')?.value?.trim();
+  if(name) updates.name=name;
+  if(phone) updates.phone=phone;
+  if(minOrder) updates.minOrder=Number(minOrder);
+  if(delivery) updates.deliveryTime=Number(delivery);
+  if(address) updates.address={street:address,city:'India'};
+  showNotif('⏳ Saving...');
+  const res=await apiCall('/restaurants/'+restId,'PUT',updates);
+  if(res) showNotif('✅ Settings saved!');
+  else showNotif('❌ Save failed');
 }
 
 // ══ INIT ══
