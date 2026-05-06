@@ -518,13 +518,7 @@ label{font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bot
           <div style="font-size:16px;font-weight:700;margin-bottom:16px">Bill Details</div>
           <div style="margin-bottom:10px">
             <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">🏷️ Available Coupons — click to apply</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap" id="coupon-chips">
-              ${Object.entries(DATA.coupons||{}).map(([code,c])=>`
-                <div onclick="quickApplyCoupon('${code}')" title="${c.desc}"
-                  style="cursor:pointer;border:1.5px dashed var(--red);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;color:var(--red);background:#fde8ea;transition:all .15s">
-                  ${code}
-                </div>`).join('')}
-            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap" id="coupon-chips"></div>
           </div>
           <div style="display:flex;gap:8px;margin-bottom:16px">
             <input type="text" id="promo-input" placeholder="Enter coupon code" style="border-radius:6px 0 0 6px;border-right:none">
@@ -1300,6 +1294,15 @@ function renderCart(){
   const isEmpty=DATA.cart.length===0;
   document.getElementById('empty-cart').classList.toggle('hidden',!isEmpty);
   document.getElementById('cart-content').classList.toggle('hidden',isEmpty);
+  // Populate coupon chips
+  const chips = document.getElementById('coupon-chips');
+  if(chips && DATA.coupons){
+    chips.innerHTML = Object.entries(DATA.coupons).map(([code,c])=>`
+      <div onclick="quickApplyCoupon('${code}')" title="${c.desc}"
+        style="cursor:pointer;border:1.5px dashed var(--red);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;color:var(--red);background:#fde8ea;transition:all .15s">
+        ${code}
+      </div>`).join('');
+  }
   if(isEmpty)return;
   const list=document.getElementById('cart-items-list');
   list.innerHTML=DATA.cart.map(item=>`
@@ -2374,7 +2377,7 @@ async function adminBlockUser(userId,isCurrentlyBlocked){
     const statusEl=document.getElementById('user-status-'+userId);
     const btnEl=document.getElementById('user-block-btn-'+userId);
     if(statusEl){statusEl.textContent=newStatus?'Blocked':'Active';statusEl.className='badge '+(newStatus?'badge-red':'badge-green');}
-    if(btnEl){btnEl.textContent=newStatus?'Unblock':'Block';btnEl.className='action-btn '+(newStatus?'action-approve':'action-block');btnEl.setAttribute('onclick','adminBlockUser(\''+userId+'\','+newStatus+')');}
+    if(btnEl){btnEl.textContent=newStatus?'Unblock':'Block';btnEl.className='action-btn '+(newStatus?'action-approve':'action-block');btnEl.setAttribute('onclick','adminBlockUser(''+userId+'','+newStatus+')');}
   } else showNotif('❌ Failed to update user');
 }
 
